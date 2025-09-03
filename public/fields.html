@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Custom Fields - PARA System</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f8fafc; color: #334155; }
+        .container { max-width: 1200px; margin: 0 auto; padding: 2rem; }
+        .header { text-align: center; margin-bottom: 2rem; }
+        .header h1 { font-size: 2.5rem; font-weight: 700; color: #1e293b; margin-bottom: 0.5rem; }
+        .nav { margin-bottom: 2rem; }
+        .nav a { color: #3b82f6; text-decoration: none; margin-right: 1rem; }
+        .nav a:hover { text-decoration: underline; }
+        
+        .section { background: white; border-radius: 12px; padding: 2rem; margin-bottom: 2rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        .section h2 { margin-bottom: 1.5rem; color: #1e293b; }
+        
+        .form-group { margin-bottom: 1rem; }
+        .form-label { display: block; margin-bottom: 0.5rem; font-weight: 500; }
+        .form-input, .form-textarea, .form-select { width: 100%; padding: 0.75rem; border: 1px solid #d1d5db; border-radius: 6px; font-size: 1rem; }
+        .btn { padding: 0.75rem 1.5rem; border-radius: 6px; font-size: 1rem; cursor: pointer; border: none; }
+        .btn-primary { background: #3b82f6; color: white; }
+        .btn-primary:hover { background: #2563eb; }
+        .btn-secondary { background: #e5e7eb; color: #374151; }
+        
+        .fields-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1rem; margin-bottom: 2rem; }
+        .field-card { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 1rem; }
+        .field-name { font-weight: 600; margin-bottom: 0.5rem; }
+        .field-type { background: #ddd6fe; color: #5b21b6; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.75rem; }
+        .field-desc { color: #64748b; font-size: 0.875rem; margin-top: 0.5rem; }
+        
+        .bucket-section { margin-bottom: 2rem; }
+        .bucket-title { font-size: 1.25rem; font-weight: 600; margin-bottom: 1rem; }
+        .bucket.project { border-left: 4px solid #3b82f6; }
+        .bucket.area { border-left: 4px solid #10b981; }
+        .bucket.resource { border-left: 4px solid #f59e0b; }
+        .bucket.archive { border-left: 4px solid #6b7280; }
+        .bucket.action { border-left: 4px solid #ef4444; }
+        
+        .assigned-fields { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1rem; }
+        .assigned-field { background: #e0e7ff; color: #3730a3; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.875rem; }
+        .field-assignment { display: flex; gap: 0.5rem; align-items: center; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Custom Fields Management</h1>
+            <div class="nav">
+                <a href="/">← Back to PARA System</a>
+            </div>
+        </div>
+        
+        <div class="section">
+            <h2>Create New Field</h2>
+            <form id="field-form">
+                <div class="form-group">
+                    <label class="form-label">Field Name</label>
+                    <input type="text" class="form-input" id="field-name" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Field Type</label>
+                    <select class="form-select" id="field-type" required onchange="updateFieldOptions()">
+                        <option value="text">Text</option>
+                        <option value="boolean">Boolean</option>
+                        <option value="array">Array/Dropdown</option>
+                        <option value="date">Date</option>
+                        <option value="datetime">DateTime</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Description</label>
+                    <textarea class="form-textarea" id="field-description"></textarea>
+                </div>
+                <div class="form-group" id="default-value-group">
+                    <label class="form-label">Default Value</label>
+                    <input type="text" class="form-input" id="field-default">
+                </div>
+                <div class="form-group" id="array-options-group" style="display: none;">
+                    <label class="form-label">Array Options (comma-separated)</label>
+                    <input type="text" class="form-input" id="field-options" placeholder="option1, option2, option3">
+                    <label style="margin-top: 0.5rem;">
+                        <input type="checkbox" id="field-multi-select"> Allow multiple selections
+                    </label>
+                </div>
+                <button type="submit" class="btn btn-primary">Create Field</button>
+            </form>
+        </div>
+        
+        <div class="section">
+            <h2>Available Fields</h2>
+            <div class="fields-grid" id="fields-list"></div>
+        </div>
+        
+        <div class="section">
+            <h2>Bucket Field Assignments</h2>
+            <div id="bucket-assignments">
+                <div class="bucket-section bucket project">
+                    <div class="bucket-title">Projects</div>
+                    <div class="assigned-fields" id="project-fields"></div>
+                    <div class="field-assignment">
+                        <select id="project-field-select" class="form-select" style="flex: 1;">
+                            <option value="">Select field to add...</option>
+                        </select>
+                        <button onclick="assignField('PROJECT')" class="btn btn-secondary">Add</button>
+                    </div>
+                </div>
+                
+                <div class="bucket-section bucket area">
+                    <div class="bucket-title">Areas</div>
+                    <div class="assigned-fields" id="area-fields"></div>
+                    <div class="field-assignment">
+                        <select id="area-field-select" class="form-select" style="flex: 1;">
+                            <option value="">Select field to add...</option>
+                        </select>
+                        <button onclick="assignField('AREA')" class="btn btn-secondary">Add</button>
+                    </div>
+                </div>
+                
+                <div class="bucket-section bucket resource">
+                    <div class="bucket-title">Resources</div>
+                    <div class="assigned-fields" id="resource-fields"></div>
+                    <div class="field-assignment">
+                        <select id="resource-field-select" class="form-select" style="flex: 1;">
+                            <option value="">Select field to add...</option>
+                        </select>
+                        <button onclick="assignField('RESOURCE')" class="btn btn-secondary">Add</button>
+                    </div>
+                </div>
+                
+                <div class="bucket-section bucket archive">
+                    <div class="bucket-title">Archives</div>
+                    <div class="assigned-fields" id="archive-fields"></div>
+                    <div class="field-assignment">
+                        <select id="archive-field-select" class="form-select" style="flex: 1;">
+                            <option value="">Select field to add...</option>
+                        </select>
+                        <button onclick="assignField('ARCHIVE')" class="btn btn-secondary">Add</button>
+                    </div>
+                </div>
+                
+                <div class="bucket-section bucket action">
+                    <div class="bucket-title">Actions</div>
+                    <div class="assigned-fields" id="action-fields"></div>
+                    <div class="field-assignment">
+                        <select id="action-field-select" class="form-select" style="flex: 1;">
+                            <option value="">Select field to add...</option>
+                        </select>
+                        <button onclick="assignField('ACTION')" class="btn btn-secondary">Add</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        let allFields = [];
+        
+        async function loadFields() {
+            try {
+                const response = await fetch('/api/custom-fields');
+                allFields = await response.json();
+                displayFields();
+                updateFieldSelects();
+            } catch (error) {
+                console.error('Failed to load fields:', error);
+            }
+        }
+        
+        function updateFieldOptions() {
+            const type = document.getElementById('field-type').value;
+            const defaultGroup = document.getElementById('default-value-group');
+            const arrayGroup = document.getElementById('array-options-group');
+            const defaultInput = document.getElementById('field-default');
+            
+            if (type === 'array') {
+                arrayGroup.style.display = 'block';
+                defaultGroup.style.display = 'none';
+            } else {
+                arrayGroup.style.display = 'none';
+                defaultGroup.style.display = 'block';
+                
+                // Update default input type
+                switch(type) {
+                    case 'boolean':
+                        defaultInput.type = 'checkbox';
+                        defaultInput.placeholder = '';
+                        break;
+                    case 'date':
+                        defaultInput.type = 'date';
+                        defaultInput.placeholder = '';
+                        break;
+                    case 'datetime':
+                        defaultInput.type = 'datetime-local';
+                        defaultInput.placeholder = '';
+                        break;
+                    default:
+                        defaultInput.type = 'text';
+                        defaultInput.placeholder = 'Default value';
+                }
+            }
+        }
+        
+        function displayFields() {
+            const container = document.getElementById('fields-list');
+            container.innerHTML = allFields.map(field => `
+                <div class="field-card">
+                    <div class="field-name">${field.name}</div>
+                    <span class="field-type">${field.type}${field.multiSelect ? ' (multi)' : ''}</span>
+                    ${field.description ? `<div class="field-desc">${field.description}</div>` : ''}
+                    ${field.defaultValue ? `<div class="field-desc"><strong>Default:</strong> ${JSON.stringify(field.defaultValue)}</div>` : ''}
+                    ${field.arrayOptions ? `<div class="field-desc"><strong>Options:</strong> ${field.arrayOptions.join(', ')}</div>` : ''}
+                </div>
+            `).join('');
+        }
+        
+        function updateFieldSelects() {
+            const buckets = ['project', 'area', 'resource', 'archive', 'action'];
+            buckets.forEach(bucket => {
+                const select = document.getElementById(`${bucket}-field-select`);
+                select.innerHTML = '<option value="">Select field to add...</option>' +
+                    allFields.map(field => `<option value="${field.id}">${field.name} (${field.type})</option>`).join('');
+            });
+        }
+        
+        async function loadBucketFields() {
+            const buckets = ['PROJECT', 'AREA', 'RESOURCE', 'ARCHIVE', 'ACTION'];
+            for (const bucket of buckets) {
+                try {
+                    const response = await fetch(`/api/bucket-fields/${bucket}`);
+                    const fields = await response.json();
+                    const container = document.getElementById(`${bucket.toLowerCase()}-fields`);
+                    container.innerHTML = fields.map(field => 
+                        `<span class="assigned-field">${field.name} (${field.type})</span>`
+                    ).join('');
+                } catch (error) {
+                    console.error(`Failed to load ${bucket} fields:`, error);
+                }
+            }
+        }
+        
+        async function assignField(bucket) {
+            const select = document.getElementById(`${bucket.toLowerCase()}-field-select`);
+            const fieldId = select.value;
+            if (!fieldId) return;
+            
+            try {
+                const response = await fetch('/api/bucket-fields', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ bucket, fieldId })
+                });
+                
+                if (response.ok) {
+                    select.value = '';
+                    loadBucketFields();
+                } else {
+                    alert('Failed to assign field');
+                }
+            } catch (error) {
+                console.error('Failed to assign field:', error);
+                alert('Failed to assign field');
+            }
+        }
+        
+        document.getElementById('field-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const name = document.getElementById('field-name').value;
+            const type = document.getElementById('field-type').value;
+            const description = document.getElementById('field-description').value;
+            
+            let defaultValue = null;
+            let arrayOptions = null;
+            let multiSelect = false;
+            
+            if (type === 'array') {
+                const options = document.getElementById('field-options').value;
+                arrayOptions = options ? options.split(',').map(o => o.trim()) : [];
+                multiSelect = document.getElementById('field-multi-select').checked;
+                defaultValue = multiSelect ? [] : (arrayOptions.length > 0 ? [arrayOptions[0]] : []);
+            } else {
+                const defaultInput = document.getElementById('field-default');
+                if (defaultInput.value) {
+                    switch(type) {
+                        case 'boolean':
+                            defaultValue = defaultInput.checked;
+                            break;
+                        case 'date':
+                        case 'datetime':
+                            defaultValue = defaultInput.value;
+                            break;
+                        default:
+                            defaultValue = defaultInput.value;
+                    }
+                }
+            }
+            
+            try {
+                const response = await fetch('/api/custom-fields', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        name, 
+                        type, 
+                        description, 
+                        defaultValue, 
+                        arrayOptions, 
+                        multiSelect 
+                    })
+                });
+                
+                if (response.ok) {
+                    document.getElementById('field-form').reset();
+                    updateFieldOptions(); // Reset form display
+                    loadFields();
+                } else {
+                    alert('Failed to create field');
+                }
+            } catch (error) {
+                console.error('Failed to create field:', error);
+                alert('Failed to create field');
+            }
+        });
+        
+        // Load data on page load
+        loadFields();
+        loadBucketFields();
+    </script>
+</body>
+</html>

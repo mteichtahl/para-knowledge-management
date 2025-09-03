@@ -1,0 +1,25 @@
+{
+  "name": "para-system",
+  "version": "1.0.0",
+  "description": "PARA Knowledge & Task Management System",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "ts-node src/example.ts",
+    "seed": "ts-node src/seed.ts",
+    "db:generate": "drizzle-kit generate",
+    "db:push": "drizzle-kit push",
+    "db:migrate": "drizzle-kit migrate"
+  },
+  "dependencies": {
+    "drizzle-orm": "^0.29.0",
+    "postgres": "^3.4.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "drizzle-kit": "^0.20.0",
+    "ts-node": "^10.9.0",
+    "typescript": "^5.0.0"
+  }
+}
