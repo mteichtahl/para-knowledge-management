@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Search, Plus, Settings, X, Target, Briefcase, BookOpen, Archive, CheckSquare, CheckCircle, Link } from 'lucide-react'
+import { Search, Plus, Settings, X, Target, Briefcase, BookOpen, Archive, CheckSquare, CheckCircle, Link, ChevronDown, ChevronRight } from 'lucide-react'
 import './App.css'
 
 interface Item {
@@ -72,12 +72,14 @@ function App() {
   const [currentEditItem, setCurrentEditItem] = useState<Item | null>(null)
   const [customFields, setCustomFields] = useState<CustomField[]>([])
   const [showAddField, setShowAddField] = useState(false)
+  const [showBucketAssignments, setShowBucketAssignments] = useState(false)
   const [newField, setNewField] = useState({
     name: '',
     type: 'text',
+    description: '',
+    defaultValue: '',
     arrayOptions: '',
-    multiSelect: false,
-    defaultValue: ''
+    multiSelect: false
   })
 
   useEffect(() => {
@@ -163,10 +165,11 @@ function App() {
     try {
       const fieldData = {
         name: newField.name.trim(),
+        description: newField.description.trim() || undefined,
         type: newField.type,
+        defaultValue: newField.defaultValue.trim() || undefined,
         arrayOptions: newField.type === 'array' ? newField.arrayOptions.split(',').map(s => s.trim()).filter(s => s) : undefined,
-        multiSelect: newField.multiSelect,
-        defaultValue: newField.defaultValue || null
+        multiSelect: newField.multiSelect
       }
       
       console.log('Creating field:', fieldData)
@@ -181,7 +184,7 @@ function App() {
         console.log('Field created successfully')
         await loadCustomFields()
         setShowAddField(false)
-        setNewField({ name: '', type: 'text', arrayOptions: '', multiSelect: false, defaultValue: '' })
+        setNewField({ name: '', description: '', type: 'text', defaultValue: '', arrayOptions: '', multiSelect: false })
       } else {
         const errorText = await response.text()
         let errorMessage = 'Unknown error'
@@ -465,6 +468,18 @@ function App() {
                         className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
                       />
                     </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                      <textarea
+                        value={newField.description}
+                        onChange={(e) => setNewField({...newField, description: e.target.value})}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                        rows={2}
+                        placeholder="Optional description for this field"
+                      />
+                    </div>
+                    
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Type</label>
                       <select
@@ -477,6 +492,17 @@ function App() {
                         <option value="date">Date</option>
                         <option value="array">Array</option>
                       </select>
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Default Value</label>
+                      <input
+                        type="text"
+                        value={newField.defaultValue}
+                        onChange={(e) => setNewField({...newField, defaultValue: e.target.value})}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                        placeholder="Optional default value"
+                      />
                     </div>
                     {newField.type === 'array' && (
                       <div>
@@ -514,23 +540,64 @@ function App() {
                         <div>
                           <h4 className="font-medium">{field.name}</h4>
                           <p className="text-sm text-gray-600">{field.type}</p>
+                          {field.description && (
+                            <p className="text-sm text-gray-500 mt-1">{field.description}</p>
+                          )}
                         </div>
-                      </div>
-                      <div className="grid grid-cols-5 gap-2 text-sm">
-                        {Object.entries(bucketConfig).map(([bucket, config]) => (
-                          <label key={bucket} className="flex items-center">
-                            <input
-                              type="checkbox"
-                              checked={bucketFields[bucket]?.some(f => f.id === field.id) || false}
-                              onChange={() => toggleFieldForBucket(field.id, bucket)}
-                              className="w-4 h-4 text-blue-600 border-gray-300 rounded mr-2"
-                            />
-                            <span className="text-xs">{config.name}</span>
-                          </label>
-                        ))}
                       </div>
                     </div>
                   ))}
+                </div>
+
+                <div className="mt-6 border-t pt-6">
+                  <button
+                    onClick={() => setShowBucketAssignments(!showBucketAssignments)}
+                    className="flex items-center justify-between w-full text-left p-3 rounded-lg hover:bg-gray-50 transition-colors border border-gray-200"
+                  >
+                    <h3 className="text-lg font-medium text-gray-900">Bucket Assignments</h3>
+                    {showBucketAssignments ? (
+                      <ChevronDown className="w-5 h-5 text-gray-500" />
+                    ) : (
+                      <ChevronRight className="w-5 h-5 text-gray-500" />
+                    )}
+                  </button>
+                  
+                  {showBucketAssignments && (
+                    <div className="mt-4 space-y-4">
+                      {customFields.map((field) => (
+                        <div key={field.id} className="border border-gray-200 rounded-lg p-4">
+                          <h4 className="font-medium text-gray-900 mb-3">{field.name}</h4>
+                          <div className="grid grid-cols-1 gap-3">
+                            {Object.entries(bucketConfig).map(([bucket, config]) => (
+                              <div key={bucket} className="flex items-center justify-between p-3 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors">
+                                <label className="flex items-center cursor-pointer">
+                                  <input
+                                    type="checkbox"
+                                    checked={bucketFields[bucket]?.some(f => f.id === field.id) || false}
+                                    onChange={() => toggleFieldForBucket(field.id, bucket)}
+                                    className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
+                                  />
+                                  <div className="ml-3 flex items-center">
+                                    <config.icon className="w-4 h-4 mr-2" style={{ color: config.color }} />
+                                    <span className="text-sm font-medium text-gray-900">{config.name}</span>
+                                  </div>
+                                </label>
+                                {bucketFields[bucket]?.some(f => f.id === field.id) && (
+                                  <label className="flex items-center text-sm text-gray-600">
+                                    <input
+                                      type="checkbox"
+                                      className="w-3 h-3 text-red-600 border-gray-300 rounded mr-2"
+                                    />
+                                    Required
+                                  </label>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
             ) : (
