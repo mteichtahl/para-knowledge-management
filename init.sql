@@ -100,17 +100,64 @@ INSERT INTO statuses (bucket, name, "order") VALUES
 ('ACTION', 'Someday', 3),
 ('ACTION', 'Done', 4);
 
--- Insert default custom fields
+-- Insert priority custom field
 INSERT INTO custom_fields (name, type, description, default_value, array_options, multi_select) VALUES
-('priority', 'array', 'Priority level', '["medium"]', ARRAY['low', 'medium', 'high'], false),
-('deadline', 'date', 'Due date for completion', null, null, false),
-('isUrgent', 'boolean', 'Urgent flag', 'false', null, false),
-('tags', 'array', 'Category tags', '[]', ARRAY['work', 'personal', 'urgent', 'meeting', 'research'], true),
-('estimatedHours', 'text', 'Estimated time to complete', '"4"', null, false);
+('priority', 'array', 'Priority level', '["Medium"]', ARRAY['High', 'Medium', 'Low'], false);
 
--- Assign default fields to buckets
-INSERT INTO bucket_fields (bucket, field_id) 
-SELECT 'PROJECT', id FROM custom_fields WHERE name IN ('priority', 'deadline', 'estimatedHours');
+-- Insert status custom field
+INSERT INTO custom_fields (name, type, description, default_value, array_options, multi_select) VALUES
+('status', 'array', 'Status', '["To Do"]', ARRAY['To Do', 'On Hold', 'In Progress', 'In Review', 'Not Doing', 'Done'], false);
 
-INSERT INTO bucket_fields (bucket, field_id)
-SELECT 'ACTION', id FROM custom_fields WHERE name IN ('priority', 'isUrgent', 'deadline');
+-- Insert urgency custom field
+INSERT INTO custom_fields (name, type, description, default_value, array_options, multi_select) VALUES
+('urgency', 'array', 'Urgency level', '["Medium"]', ARRAY['Extreme', 'High', 'Medium', 'Low'], false);
+
+-- Insert start date custom field
+INSERT INTO custom_fields (name, type, description, default_value, array_options, multi_select) VALUES
+('startDate', 'date', 'Start date', null, null, false);
+
+-- Insert end date custom field
+INSERT INTO custom_fields (name, type, description, default_value, array_options, multi_select) VALUES
+('endDate', 'date', 'End date', null, null, false);
+
+-- Insert owner custom field
+INSERT INTO custom_fields (name, type, description, default_value, array_options, multi_select) VALUES
+('owner', 'text', 'Owner', null, null, false);
+
+-- Assign priority field as required to Projects, Areas, and Actions only
+INSERT INTO bucket_fields (bucket, field_id, required) VALUES
+('PROJECT', (SELECT id FROM custom_fields WHERE name = 'priority'), true),
+('AREA', (SELECT id FROM custom_fields WHERE name = 'priority'), true),
+('ACTION', (SELECT id FROM custom_fields WHERE name = 'priority'), true);
+
+-- Assign status field as required to Projects, Areas, and Actions only
+INSERT INTO bucket_fields (bucket, field_id, required) VALUES
+('PROJECT', (SELECT id FROM custom_fields WHERE name = 'status'), true),
+('AREA', (SELECT id FROM custom_fields WHERE name = 'status'), true),
+('ACTION', (SELECT id FROM custom_fields WHERE name = 'status'), true);
+
+-- Assign urgency field as required to Projects, Areas, and Actions only
+INSERT INTO bucket_fields (bucket, field_id, required) VALUES
+('PROJECT', (SELECT id FROM custom_fields WHERE name = 'urgency'), true),
+('AREA', (SELECT id FROM custom_fields WHERE name = 'urgency'), true),
+('ACTION', (SELECT id FROM custom_fields WHERE name = 'urgency'), true);
+
+-- Assign start date field as optional to Projects, Areas, and Actions only
+INSERT INTO bucket_fields (bucket, field_id, required) VALUES
+('PROJECT', (SELECT id FROM custom_fields WHERE name = 'startDate'), false),
+('AREA', (SELECT id FROM custom_fields WHERE name = 'startDate'), false),
+('ACTION', (SELECT id FROM custom_fields WHERE name = 'startDate'), false);
+
+-- Assign end date field as optional to Projects, Areas, and Actions only
+INSERT INTO bucket_fields (bucket, field_id, required) VALUES
+('PROJECT', (SELECT id FROM custom_fields WHERE name = 'endDate'), false),
+('AREA', (SELECT id FROM custom_fields WHERE name = 'endDate'), false),
+('ACTION', (SELECT id FROM custom_fields WHERE name = 'endDate'), false);
+
+-- Assign owner field as optional to all buckets
+INSERT INTO bucket_fields (bucket, field_id, required) VALUES
+('PROJECT', (SELECT id FROM custom_fields WHERE name = 'owner'), false),
+('AREA', (SELECT id FROM custom_fields WHERE name = 'owner'), false),
+('RESOURCE', (SELECT id FROM custom_fields WHERE name = 'owner'), false),
+('ARCHIVE', (SELECT id FROM custom_fields WHERE name = 'owner'), false),
+('ACTION', (SELECT id FROM custom_fields WHERE name = 'owner'), false);
