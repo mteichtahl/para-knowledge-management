@@ -157,7 +157,27 @@ export class PARAService {
   }
 
   async assignFieldToBucket(input: { bucket: BucketType; fieldId: string; required?: boolean }): Promise<any> {
-    const result = await db.insert(bucketFields).values(input).returning();
+    console.log('assignFieldToBucket called with:', input);
+    console.log('bucket value:', input.bucket, 'type:', typeof input.bucket);
+    console.log('fieldId value:', input.fieldId, 'type:', typeof input.fieldId);
+    
+    // Ensure bucket is a valid enum value
+    const validBuckets = ['PROJECT', 'AREA', 'RESOURCE', 'ARCHIVE', 'ACTION'];
+    if (!validBuckets.includes(input.bucket)) {
+      throw new Error(`Invalid bucket type: ${input.bucket}. Must be one of: ${validBuckets.join(', ')}`);
+    }
+    
+    const result = await db.insert(bucketFields).values({
+      bucket: input.bucket as any,
+      fieldId: input.fieldId,
+      required: input.required || false
+    }).returning();
     return result[0];
+  }
+
+  async removeFieldFromBucket(bucket: BucketType, fieldId: string): Promise<void> {
+    console.log('removeFieldFromBucket called with:', { bucket, fieldId });
+    await db.delete(bucketFields)
+      .where(and(eq(bucketFields.bucket, bucket), eq(bucketFields.fieldId, fieldId)));
   }
 }

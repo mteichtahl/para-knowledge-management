@@ -22,10 +22,21 @@ services:
       DATABASE_URL: postgresql://para_user:para_password@postgres:5432/para_db
       NODE_ENV: production
     ports:
-      - "3001:3000"
+      - "3002:3000"
     depends_on:
       postgres:
         condition: service_healthy
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3001:3000"
+    volumes:
+      - ./frontend/src:/app/src
+    depends_on:
+      - app
 
 volumes:
   postgres_data:

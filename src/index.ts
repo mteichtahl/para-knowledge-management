@@ -3,11 +3,14 @@ import { readFileSync } from 'fs';
 import { join } from 'path';
 import { PARAService } from './service';
 import { BucketType } from './types';
+import { db } from './db';
+import { bucketFields } from './schema';
 
 const service = new PARAService();
 const PORT = process.env.PORT || 3000;
 
 const server = createServer(async (req, res) => {
+  console.log(`=== REQUEST: ${req.method} ${req.url} ===`);
   const url = new URL(req.url!, `http://${req.headers.host}`);
   
   // Serve static files
@@ -48,19 +51,26 @@ const server = createServer(async (req, res) => {
   }
 
   if (req.method === 'POST' && url.pathname === '/api/custom-fields') {
-    try {
-      let body = '';
-      req.on('data', chunk => body += chunk);
-      req.on('end', async () => {
+    let body = '';
+    req.on('data', chunk => body += chunk);
+    req.on('end', async () => {
+      try {
         const data = JSON.parse(body);
+        console.log('Creating custom field:', data);
         const field = await service.createCustomField(data);
-        res.writeHead(201);
+        console.log('Custom field created:', field);
+        res.writeHead(201, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify(field));
-      });
-    } catch (error) {
-      res.writeHead(500);
-      res.end(JSON.stringify({ error: 'Internal server error' }));
-    }
+      } catch (error: any) {
+        console.error('Error creating custom field:', error);
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        if (error.code === '23505') {
+          res.end(JSON.stringify({ error: 'A field with this name already exists' }));
+        } else {
+          res.end(JSON.stringify({ error: error.message || 'Failed to create custom field' }));
+        }
+      }
+    });
     return;
   }
 
@@ -77,20 +87,31 @@ const server = createServer(async (req, res) => {
     return;
   }
 
-  if (req.method === 'POST' && url.pathname === '/api/bucket-fields') {
-    try {
-      let body = '';
-      req.on('data', chunk => body += chunk);
-      req.on('end', async () => {
+  if (req.method === 'POST' && url.pathname === '/api/test-bucket-assignment') {
+    let body = '';
+    req.on('data', chunk => body += chunk);
+    req.on('end', async () => {
+      try {
         const data = JSON.parse(body);
-        await service.assignFieldToBucket(data);
-        res.writeHead(201);
-        res.end(JSON.stringify({ success: true }));
-      });
-    } catch (error) {
-      res.writeHead(500);
-      res.end(JSON.stringify({ error: 'Internal server error' }));
-    }
+        console.log('Test endpoint received:', data);
+        
+        // Direct database insert to bypass service layer
+        const result = await db.insert(bucketFields).values({
+          bucket: data.bucketType as any,
+          fieldId: data.customFieldId,
+          required: false
+        }).returning();
+        
+        res.writeHead(201, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(result[0]));
+      } catch (error: any) {
+        console.error('Test endpoint error:', error);
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: error.message }));
+      }
+    });
+    return;
+  }
     return;
   }
   
@@ -189,6 +210,25 @@ const server = createServer(async (req, res) => {
     } catch (error) {
       res.writeHead(500);
       res.end(JSON.stringify({ error: 'Internal server error' }));
+    }
+    return;
+  }
+
+  if (req.method === 'DELETE' && url.pathname.startsWith('/api/bucket-fields/')) {
+    try {
+      const pathParts = url.pathname.split('/');
+      const bucket = pathParts[3];
+      const fieldId = pathParts[4];
+      
+      console.log('Removing field from bucket:', { bucket, fieldId });
+      await service.removeFieldFromBucket(bucket as any, fieldId);
+      
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: true }));
+    } catch (error: any) {
+      console.error('Error removing field from bucket:', error);
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: error.message || 'Failed to remove field from bucket' }));
     }
     return;
   }

@@ -7,16 +7,21 @@
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f8fafc; color: #334155; }
-        .container { max-width: 1200px; margin: 0 auto; padding: 2rem; }
-        .header { text-align: center; margin-bottom: 2rem; }
+        
+        .layout { display: grid; grid-template-columns: 1fr 400px; height: 100vh; }
+        .main-content { padding: 2rem; overflow-y: auto; }
+        .side-panel { background: white; border-left: 1px solid #e2e8f0; transform: translateX(100%); transition: transform 0.3s ease; overflow-y: auto; }
+        .side-panel.open { transform: translateX(0); }
+        
+        .header { margin-bottom: 2rem; }
         .header h1 { font-size: 2.5rem; font-weight: 700; color: #1e293b; margin-bottom: 0.5rem; }
         .header p { color: #64748b; font-size: 1.1rem; margin-bottom: 1.5rem; }
         
-        .search-bar { max-width: 500px; margin: 0 auto 2rem; position: relative; }
+        .search-bar { max-width: 500px; margin-bottom: 2rem; position: relative; }
         .search-input { width: 100%; padding: 1rem; border: 2px solid #e2e8f0; border-radius: 12px; font-size: 1rem; }
         .search-input:focus { outline: none; border-color: #3b82f6; }
         
-        .buckets { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 2rem; margin-bottom: 3rem; }
+        .buckets { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 2rem; }
         .bucket { background: white; border-radius: 12px; padding: 1.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1); border-left: 4px solid; }
         .bucket.project { border-left-color: #3b82f6; }
         .bucket.area { border-left-color: #10b981; }
@@ -29,206 +34,213 @@
         .add-btn { background: #3b82f6; color: white; border: none; border-radius: 6px; padding: 0.5rem 1rem; cursor: pointer; font-size: 0.875rem; }
         .add-btn:hover { background: #2563eb; }
         
-        .items { margin-top: 1rem; }
-        .item { background: #f8fafc; border-radius: 8px; padding: 1rem; border: 1px solid #e2e8f0; cursor: pointer; margin-bottom: 0.75rem; }
-        .item:hover { border-color: #3b82f6; }
-        .item-title { font-weight: 500; margin-bottom: 0.25rem; }
-        .item-desc { color: #64748b; font-size: 0.875rem; margin-bottom: 0.5rem; }
-        .item-meta { display: flex; gap: 0.5rem; margin-bottom: 0.5rem; flex-wrap: wrap; }
-        .status-badge { background: #e2e8f0; color: #475569; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.75rem; }
-        .field-badge { background: #ddd6fe; color: #5b21b6; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.75rem; }
-        .relationships { margin-top: 0.5rem; }
-        .relationship { background: #f1f5f9; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.75rem; color: #475569; margin-right: 0.25rem; display: inline-block; }
-        .notes-count { background: #fef3c7; color: #92400e; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.75rem; }
-        .item.has-children { border-left: 3px solid #3b82f6; }
-        .child-items { margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid #e2e8f0; }
-        .child-header { font-size: 0.75rem; color: #6b7280; text-transform: uppercase; font-weight: 600; margin-bottom: 0.5rem; }
-        .child-item { display: flex; align-items: center; gap: 0.5rem; padding: 0.25rem 0.5rem; border-radius: 4px; margin-bottom: 0.25rem; cursor: pointer; }
-        .child-item:hover { background: #f1f5f9; }
-        .child-bucket { background: #e2e8f0; color: #475569; padding: 0.125rem 0.375rem; border-radius: 3px; font-size: 0.625rem; text-transform: uppercase; font-weight: 600; }
-        .child-title { font-size: 0.875rem; color: #374151; }
+        .add-form { display: none; background: #f8fafc; border-radius: 8px; padding: 1rem; margin-top: 1rem; border: 1px solid #e2e8f0; }
+        .add-form.active { display: block; }
         
-        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; }
-        .modal-content { background: white; border-radius: 12px; padding: 2rem; max-width: 600px; margin: 5% auto; max-height: 80vh; overflow-y: auto; }
-        .modal-header { font-size: 1.5rem; font-weight: 600; margin-bottom: 1.5rem; }
         .form-group { margin-bottom: 1rem; }
-        .form-label { display: block; margin-bottom: 0.5rem; font-weight: 500; }
+        .form-label { display: block; margin-bottom: 0.5rem; font-weight: 500; color: #374151; }
         .form-input, .form-textarea, .form-select { width: 100%; padding: 0.75rem; border: 1px solid #d1d5db; border-radius: 6px; font-size: 1rem; }
-        .form-textarea { resize: vertical; min-height: 100px; }
-        .form-actions { display: flex; gap: 1rem; justify-content: flex-end; margin-top: 1.5rem; }
-        .btn { padding: 0.75rem 1.5rem; border-radius: 6px; font-size: 1rem; cursor: pointer; border: none; }
+        .form-input:focus, .form-textarea:focus, .form-select:focus { outline: none; border-color: #3b82f6; }
+        
+        .form-actions { display: flex; gap: 0.5rem; }
+        .btn { padding: 0.5rem 1rem; border-radius: 6px; font-size: 0.875rem; cursor: pointer; border: none; }
         .btn-primary { background: #3b82f6; color: white; }
-        .btn-primary:hover { background: #2563eb; }
         .btn-secondary { background: #e5e7eb; color: #374151; }
-        .btn-secondary:hover { background: #d1d5db; }
-        .btn-small { padding: 0.5rem 1rem; font-size: 0.875rem; }
+        
+        .items { min-height: 100px; }
+        .item { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 1rem; margin-bottom: 0.75rem; cursor: pointer; transition: all 0.2s; }
+        .item:hover { border-color: #3b82f6; box-shadow: 0 2px 8px rgba(59, 130, 246, 0.1); }
+        .item-title { font-weight: 600; margin-bottom: 0.5rem; color: #1e293b; }
+        .item-desc { color: #64748b; font-size: 0.875rem; margin-bottom: 0.5rem; }
+        .item-meta { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+        .status-badge { background: #ddd6fe; color: #5b21b6; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.75rem; }
+        .field-badge { background: #e0f2fe; color: #0369a1; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.75rem; }
+        
+        .side-panel-header { padding: 1.5rem; border-bottom: 1px solid #e2e8f0; }
+        .side-panel-content { padding: 1.5rem; }
+        .close-panel { float: right; background: none; border: none; font-size: 1.5rem; cursor: pointer; color: #6b7280; }
         
         .empty-state { text-align: center; color: #9ca3af; font-style: italic; padding: 2rem; }
         
-        .item-details { margin-bottom: 1.5rem; }
-        .item-details h3 { margin-bottom: 0.5rem; }
-        .item-details p { color: #64748b; margin-bottom: 1rem; }
-        .section { margin-bottom: 1.5rem; }
-        .section h4 { margin-bottom: 1rem; font-size: 1.1rem; }
-        .relationships-list, .notes-list { margin-bottom: 1rem; }
-        .relationship-item, .note-item { background: #f8fafc; padding: 0.75rem; border-radius: 6px; margin-bottom: 0.5rem; }
-        .relationship-item { display: flex; justify-content: space-between; align-items: center; }
-        .relationship-type { font-size: 0.75rem; color: #6b7280; text-transform: uppercase; }
-        .note-content { margin-bottom: 0.5rem; }
-        .note-tags { display: flex; gap: 0.25rem; flex-wrap: wrap; }
-        .tag { background: #e0e7ff; color: #3730a3; padding: 0.125rem 0.375rem; border-radius: 3px; font-size: 0.75rem; }
-        
-        .fields-section { margin-bottom: 1.5rem; }
-        .field-input-group { display: flex; gap: 0.5rem; margin-bottom: 0.5rem; align-items: center; }
-        .field-input-group input, .field-input-group select { flex: 1; }
-        .field-type { flex: 0 0 100px !important; }
-        .remove-field { background: #ef4444; color: white; border: none; border-radius: 4px; padding: 0.25rem 0.5rem; cursor: pointer; flex: 0 0 auto; }
+        .nav { margin-bottom: 1rem; }
+        .nav a { color: #3b82f6; text-decoration: none; margin-right: 1rem; }
+        .nav a:hover { text-decoration: underline; }
     </style>
 </head>
 <body>
-    <div class="container">
-        <div class="header">
-            <h1>PARA System</h1>
-            <p>Projects • Areas • Resources • Archives • Actions</p>
-            <div class="nav" style="margin-bottom: 1rem;">
-                <a href="/fields" style="color: #3b82f6; text-decoration: none;">⚙️ Manage Custom Fields</a>
+    <div class="layout">
+        <div class="main-content">
+            <div class="header">
+                <h1>PARA System</h1>
+                <p>Projects • Areas • Resources • Archives • Actions</p>
+                <div class="nav">
+                    <a href="/fields">⚙️ Manage Custom Fields</a>
+                </div>
+                <div class="search-bar">
+                    <input type="text" class="search-input" placeholder="Search items..." id="search-input">
+                </div>
             </div>
-            <div class="search-bar">
-                <input type="text" class="search-input" placeholder="Search items..." id="search-input">
+            
+            <div class="buckets">
+                <div class="bucket project">
+                    <div class="bucket-header">
+                        <h2 class="bucket-title">Projects</h2>
+                        <button class="add-btn" onclick="toggleAddForm('PROJECT')">+ Add</button>
+                    </div>
+                    <div class="add-form" id="add-form-PROJECT">
+                        <div class="form-group">
+                            <label class="form-label">Title</label>
+                            <input type="text" class="form-input" id="title-PROJECT" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Description</label>
+                            <textarea class="form-textarea" id="description-PROJECT"></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Status</label>
+                            <select class="form-select" id="status-PROJECT"></select>
+                        </div>
+                        <div id="fields-PROJECT"></div>
+                        <div class="form-actions">
+                            <button class="btn btn-primary" onclick="createItem('PROJECT')">Create</button>
+                            <button class="btn btn-secondary" onclick="cancelAdd('PROJECT')">Cancel</button>
+                        </div>
+                    </div>
+                    <div class="items" id="projects-items">
+                        <div class="empty-state">No projects yet</div>
+                    </div>
+                </div>
+                
+                <div class="bucket area">
+                    <div class="bucket-header">
+                        <h2 class="bucket-title">Areas</h2>
+                        <button class="add-btn" onclick="toggleAddForm('AREA')">+ Add</button>
+                    </div>
+                    <div class="add-form" id="add-form-AREA">
+                        <div class="form-group">
+                            <label class="form-label">Title</label>
+                            <input type="text" class="form-input" id="title-AREA" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Description</label>
+                            <textarea class="form-textarea" id="description-AREA"></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Status</label>
+                            <select class="form-select" id="status-AREA"></select>
+                        </div>
+                        <div id="fields-AREA"></div>
+                        <div class="form-actions">
+                            <button class="btn btn-primary" onclick="createItem('AREA')">Create</button>
+                            <button class="btn btn-secondary" onclick="cancelAdd('AREA')">Cancel</button>
+                        </div>
+                    </div>
+                    <div class="items" id="areas-items">
+                        <div class="empty-state">No areas yet</div>
+                    </div>
+                </div>
+                
+                <div class="bucket resource">
+                    <div class="bucket-header">
+                        <h2 class="bucket-title">Resources</h2>
+                        <button class="add-btn" onclick="toggleAddForm('RESOURCE')">+ Add</button>
+                    </div>
+                    <div class="add-form" id="add-form-RESOURCE">
+                        <div class="form-group">
+                            <label class="form-label">Title</label>
+                            <input type="text" class="form-input" id="title-RESOURCE" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Description</label>
+                            <textarea class="form-textarea" id="description-RESOURCE"></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Status</label>
+                            <select class="form-select" id="status-RESOURCE"></select>
+                        </div>
+                        <div id="fields-RESOURCE"></div>
+                        <div class="form-actions">
+                            <button class="btn btn-primary" onclick="createItem('RESOURCE')">Create</button>
+                            <button class="btn btn-secondary" onclick="cancelAdd('RESOURCE')">Cancel</button>
+                        </div>
+                    </div>
+                    <div class="items" id="resources-items">
+                        <div class="empty-state">No resources yet</div>
+                    </div>
+                </div>
+                
+                <div class="bucket archive">
+                    <div class="bucket-header">
+                        <h2 class="bucket-title">Archives</h2>
+                        <button class="add-btn" onclick="toggleAddForm('ARCHIVE')">+ Add</button>
+                    </div>
+                    <div class="add-form" id="add-form-ARCHIVE">
+                        <div class="form-group">
+                            <label class="form-label">Title</label>
+                            <input type="text" class="form-input" id="title-ARCHIVE" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Description</label>
+                            <textarea class="form-textarea" id="description-ARCHIVE"></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Status</label>
+                            <select class="form-select" id="status-ARCHIVE"></select>
+                        </div>
+                        <div id="fields-ARCHIVE"></div>
+                        <div class="form-actions">
+                            <button class="btn btn-primary" onclick="createItem('ARCHIVE')">Create</button>
+                            <button class="btn btn-secondary" onclick="cancelAdd('ARCHIVE')">Cancel</button>
+                        </div>
+                    </div>
+                    <div class="items" id="archives-items">
+                        <div class="empty-state">No archives yet</div>
+                    </div>
+                </div>
+                
+                <div class="bucket action">
+                    <div class="bucket-header">
+                        <h2 class="bucket-title">Actions</h2>
+                        <button class="add-btn" onclick="toggleAddForm('ACTION')">+ Add</button>
+                    </div>
+                    <div class="add-form" id="add-form-ACTION">
+                        <div class="form-group">
+                            <label class="form-label">Title</label>
+                            <input type="text" class="form-input" id="title-ACTION" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Description</label>
+                            <textarea class="form-textarea" id="description-ACTION"></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Status</label>
+                            <select class="form-select" id="status-ACTION"></select>
+                        </div>
+                        <div id="fields-ACTION"></div>
+                        <div class="form-actions">
+                            <button class="btn btn-primary" onclick="createItem('ACTION')">Create</button>
+                            <button class="btn btn-secondary" onclick="cancelAdd('ACTION')">Cancel</button>
+                        </div>
+                    </div>
+                    <div class="items" id="actions-items">
+                        <div class="empty-state">No actions yet</div>
+                    </div>
+                </div>
             </div>
         </div>
         
-        <div class="buckets">
-            <div class="bucket project">
-                <div class="bucket-header">
-                    <h2 class="bucket-title">Projects</h2>
-                    <button class="add-btn" onclick="openModal('PROJECT')">+ Add</button>
-                </div>
-                <div class="items" id="projects-items">
-                    <div class="empty-state">No projects yet</div>
-                </div>
+        <div class="side-panel" id="detail-panel">
+            <div class="side-panel-header">
+                <h3 id="panel-title">Item Details</h3>
+                <button class="close-panel" onclick="closePanel()">×</button>
             </div>
-            
-            <div class="bucket area">
-                <div class="bucket-header">
-                    <h2 class="bucket-title">Areas</h2>
-                    <button class="add-btn" onclick="openModal('AREA')">+ Add</button>
-                </div>
-                <div class="items" id="areas-items">
-                    <div class="empty-state">No areas yet</div>
-                </div>
-            </div>
-            
-            <div class="bucket resource">
-                <div class="bucket-header">
-                    <h2 class="bucket-title">Resources</h2>
-                    <button class="add-btn" onclick="openModal('RESOURCE')">+ Add</button>
-                </div>
-                <div class="items" id="resources-items">
-                    <div class="empty-state">No resources yet</div>
-                </div>
-            </div>
-            
-            <div class="bucket archive">
-                <div class="bucket-header">
-                    <h2 class="bucket-title">Archives</h2>
-                    <button class="add-btn" onclick="openModal('ARCHIVE')">+ Add</button>
-                </div>
-                <div class="items" id="archives-items">
-                    <div class="empty-state">No archives yet</div>
-                </div>
-            </div>
-            
-            <div class="bucket action">
-                <div class="bucket-header">
-                    <h2 class="bucket-title">Actions</h2>
-                    <button class="add-btn" onclick="openModal('ACTION')">+ Add</button>
-                </div>
-                <div class="items" id="actions-items">
-                    <div class="empty-state">No actions yet</div>
-                </div>
+            <div class="side-panel-content" id="panel-content">
+                <!-- Dynamic content -->
             </div>
         </div>
     </div>
-    
-    <!-- Add Item Modal -->
-    <div class="modal" id="item-modal">
-        <div class="modal-content">
-            <div class="modal-header">Add New Item</div>
-            <form id="item-form">
-                <div class="form-group">
-                    <label class="form-label">Title</label>
-                    <input type="text" class="form-input" id="item-title" required>
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Description</label>
-                    <textarea class="form-textarea" id="item-description"></textarea>
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Status</label>
-                    <select class="form-select" id="item-status"></select>
-                </div>
-                <div class="fields-section">
-                    <label class="form-label">Custom Fields</label>
-                    <div id="available-fields"></div>
-                </div>
-                <div class="form-actions">
-                    <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancel</button>
-                    <button type="submit" class="btn btn-primary">Create</button>
-                </div>
-            </form>
-        </div>
-    </div>
-    
-    <!-- Item Detail Modal -->
-    <div class="modal" id="item-detail-modal">
-        <div class="modal-content">
-            <div class="modal-header">Item Details</div>
-            <div id="item-detail-content"></div>
-            
-            <div class="section">
-                <h4>Custom Fields</h4>
-                <div id="custom-fields-display"></div>
-            </div>
-            
-            <div class="section">
-                <h4>Relationships</h4>
-                <div class="relationships-list" id="relationships-list"></div>
-                <div class="form-group">
-                    <select class="form-select" id="relationship-item" style="margin-bottom: 0.5rem;">
-                        <option value="">Select an item...</option>
-                    </select>
-                    <select class="form-select" id="relationship-type" style="margin-bottom: 0.5rem;">
-                        <option value="uses">Uses</option>
-                        <option value="depends-on">Depends On</option>
-                        <option value="related-to">Related To</option>
-                        <option value="part-of">Part Of</option>
-                    </select>
-                    <button type="button" class="btn btn-primary btn-small" onclick="addRelationship()">Add Relationship</button>
-                </div>
-            </div>
-            
-            <div class="section">
-                <h4>Notes</h4>
-                <div class="notes-list" id="notes-list"></div>
-                <div class="form-group">
-                    <textarea class="form-textarea" id="note-content" placeholder="Add a note..."></textarea>
-                    <input type="text" class="form-input" id="note-tags" placeholder="Tags (comma-separated)" style="margin-top: 0.5rem;">
-                    <button type="button" class="btn btn-primary btn-small" onclick="addNote()" style="margin-top: 0.5rem;">Add Note</button>
-                </div>
-            </div>
-            
-            <div class="form-actions">
-                <button type="button" class="btn btn-secondary" onclick="closeDetailModal()">Close</button>
-            </div>
-        </div>
-    </div>
-    
+
     <script>
-        let currentBucket = '';
-        let currentItem = null;
-        let allItems = [];
-        
         const statuses = {
             PROJECT: ['Planning', 'In Progress', 'On Hold', 'Completed'],
             AREA: ['Active', 'Needs Attention', 'Maintaining'],
@@ -236,243 +248,49 @@
             ARCHIVE: ['Archived'],
             ACTION: ['Next', 'Waiting', 'Someday', 'Done']
         };
-        
-        function formatFieldValue(fieldData) {
-            // Handle legacy format (plain values)
-            if (typeof fieldData !== 'object' || !fieldData.type) {
-                return fieldData;
-            }
+
+        let currentItem = null;
+
+        async function toggleAddForm(bucket) {
+            const form = document.getElementById(`add-form-${bucket}`);
+            const isActive = form.classList.contains('active');
             
-            const { type, value } = fieldData;
+            // Close all forms
+            document.querySelectorAll('.add-form').forEach(f => f.classList.remove('active'));
             
-            switch(type) {
-                case 'boolean':
-                    return value ? '✓' : '✗';
-                case 'array':
-                    return Array.isArray(value) ? value.join(', ') : value;
-                case 'date':
-                    return new Date(value).toLocaleDateString();
-                case 'datetime':
-                    return new Date(value).toLocaleString();
-                default:
-                    return value;
+            if (!isActive) {
+                form.classList.add('active');
+                await loadBucketFields(bucket);
+                populateStatusSelect(bucket);
             }
         }
-        
-        async function loadItems() {
-            try {
-                const response = await fetch('/api/items');
-                allItems = await response.json();
-                displayItems(allItems);
-            } catch (error) {
-                console.error('Failed to load items:', error);
-            }
+
+        function cancelAdd(bucket) {
+            document.getElementById(`add-form-${bucket}`).classList.remove('active');
+            clearForm(bucket);
         }
-        
-        function displayItems(items) {
-            ['PROJECT', 'AREA', 'RESOURCE', 'ARCHIVE', 'ACTION'].forEach(bucket => {
-                const container = document.getElementById(`${bucket.toLowerCase()}s-items`);
-                const bucketItems = items.filter(item => item.bucket === bucket);
-                
-                if (bucketItems.length === 0) {
-                    container.innerHTML = `<div class="empty-state">No ${bucket.toLowerCase()}s yet</div>`;
-                } else {
-                    container.innerHTML = bucketItems.map(item => {
-                        const customFields = Object.entries(item.extraFields || {}).map(([key, fieldData]) => {
-                            const displayValue = formatFieldValue(fieldData);
-                            return `<span class="field-badge">${key}: ${displayValue}</span>`;
-                        }).join('');
-                        
-                        const notesCount = item.notes?.length || 0;
-                        const notesDisplay = notesCount > 0 ? `<span class="notes-count">${notesCount} notes</span>` : '';
-                        
-                        // Find child items from other buckets
-                        const childItems = item.relatedItems?.filter(rel => rel.bucket !== bucket) || [];
-                        const childrenDisplay = childItems.length > 0 ? `
-                            <div class="child-items">
-                                <div class="child-header">Contains:</div>
-                                ${childItems.map(child => `
-                                    <div class="child-item" onclick="event.stopPropagation(); showItemDetails('${child.id}')">
-                                        <span class="child-bucket">${child.bucket}</span>
-                                        <span class="child-title">${child.title}</span>
-                                    </div>
-                                `).join('')}
-                            </div>
-                        ` : '';
-                        
-                        return `
-                            <div class="item ${childItems.length > 0 ? 'has-children' : ''}" onclick="showItemDetails('${item.id}')">
-                                <div class="item-title">${item.title}</div>
-                                ${item.description ? `<div class="item-desc">${item.description}</div>` : ''}
-                                <div class="item-meta">
-                                    <span class="status-badge">${item.status || 'No Status'}</span>
-                                    ${customFields}
-                                    ${notesDisplay}
-                                </div>
-                                ${item.relatedItems && item.relatedItems.length > 0 ? `
-                                    <div class="relationships">
-                                        ${item.relatedItems.filter(rel => rel.bucket === bucket).map(rel => `<span class="relationship">${rel.relationshipType}: ${rel.title}</span>`).join('')}
-                                    </div>
-                                ` : ''}
-                                ${childrenDisplay}
-                            </div>
-                        `;
-                    }).join('');
-                }
-            });
+
+        function clearForm(bucket) {
+            document.getElementById(`title-${bucket}`).value = '';
+            document.getElementById(`description-${bucket}`).value = '';
+            document.getElementById(`fields-${bucket}`).innerHTML = '';
         }
-        
-        function showItemDetails(itemId) {
-            currentItem = allItems.find(item => item.id === itemId);
-            if (!currentItem) return;
-            
-            document.getElementById('item-detail-content').innerHTML = `
-                <div class="item-details">
-                    <h3>${currentItem.title}</h3>
-                    <p>${currentItem.description || 'No description'}</p>
-                    <div class="item-meta">
-                        <span class="status-badge">${currentItem.status || 'No Status'}</span>
-                        <span class="status-badge">${currentItem.bucket}</span>
-                    </div>
-                </div>
-            `;
-            
-            // Display custom fields
-            const fieldsDisplay = document.getElementById('custom-fields-display');
-            const fields = currentItem.extraFields || {};
-            if (Object.keys(fields).length > 0) {
-                fieldsDisplay.innerHTML = Object.entries(fields).map(([key, fieldData]) => {
-                    const displayValue = formatFieldValue(fieldData);
-                    const type = fieldData.type || 'text';
-                    return `<div class="field-badge">${key} (${type}): ${displayValue}</div>`;
-                }).join('');
-            } else {
-                fieldsDisplay.innerHTML = '<p style="color: #9ca3af; font-style: italic;">No custom fields</p>';
-            }
-            
-            // Update relationships list
-            const relationshipsList = document.getElementById('relationships-list');
-            if (currentItem.relatedItems && currentItem.relatedItems.length > 0) {
-                relationshipsList.innerHTML = currentItem.relatedItems.map(rel => `
-                    <div class="relationship-item">
-                        <div>
-                            <strong>${rel.title}</strong> (${rel.bucket})
-                            <div class="relationship-type">${rel.relationshipType}</div>
-                        </div>
-                    </div>
-                `).join('');
-            } else {
-                relationshipsList.innerHTML = '<p style="color: #9ca3af; font-style: italic;">No relationships yet</p>';
-            }
-            
-            // Update notes list
-            const notesList = document.getElementById('notes-list');
-            if (currentItem.notes && currentItem.notes.length > 0) {
-                notesList.innerHTML = currentItem.notes.map(note => `
-                    <div class="note-item">
-                        <div class="note-content">${note.content}</div>
-                        ${note.tags && note.tags.length > 0 ? `
-                            <div class="note-tags">
-                                ${note.tags.map(tag => `<span class="tag">${tag}</span>`).join('')}
-                            </div>
-                        ` : ''}
-                    </div>
-                `).join('');
-            } else {
-                notesList.innerHTML = '<p style="color: #9ca3af; font-style: italic;">No notes yet</p>';
-            }
-            
-            // Populate relationship dropdown
-            const relationshipSelect = document.getElementById('relationship-item');
-            relationshipSelect.innerHTML = '<option value="">Select an item...</option>' + 
-                allItems.filter(item => item.id !== currentItem.id)
-                    .map(item => `<option value="${item.id}">${item.title} (${item.bucket})</option>`)
-                    .join('');
-            
-            document.getElementById('item-detail-modal').style.display = 'block';
-        }
-        
-        async function addRelationship() {
-            const childId = document.getElementById('relationship-item').value;
-            const relationshipType = document.getElementById('relationship-type').value;
-            
-            if (!childId || !currentItem) return;
-            
-            try {
-                const response = await fetch('/api/relationships', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        parentId: currentItem.id,
-                        childId: childId,
-                        relationship: relationshipType
-                    })
-                });
-                
-                if (response.ok) {
-                    document.getElementById('relationship-item').value = '';
-                    loadItems();
-                    showItemDetails(currentItem.id);
-                } else {
-                    alert('Failed to add relationship');
-                }
-            } catch (error) {
-                console.error('Failed to add relationship:', error);
-                alert('Failed to add relationship');
-            }
-        }
-        
-        async function addNote() {
-            const content = document.getElementById('note-content').value.trim();
-            const tagsInput = document.getElementById('note-tags').value.trim();
-            const tags = tagsInput ? tagsInput.split(',').map(t => t.trim()) : [];
-            
-            if (!content || !currentItem) return;
-            
-            try {
-                const response = await fetch('/api/notes', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        itemId: currentItem.id,
-                        content: content,
-                        tags: tags
-                    })
-                });
-                
-                if (response.ok) {
-                    document.getElementById('note-content').value = '';
-                    document.getElementById('note-tags').value = '';
-                    loadItems();
-                    showItemDetails(currentItem.id);
-                } else {
-                    alert('Failed to add note');
-                }
-            } catch (error) {
-                console.error('Failed to add note:', error);
-                alert('Failed to add note');
-            }
-        }
-        
-        async function openModal(bucket) {
-            currentBucket = bucket;
-            document.getElementById('item-modal').style.display = 'block';
-            
-            const statusSelect = document.getElementById('item-status');
-            statusSelect.innerHTML = statuses[bucket].map(status => 
+
+        function populateStatusSelect(bucket) {
+            const select = document.getElementById(`status-${bucket}`);
+            select.innerHTML = statuses[bucket].map(status => 
                 `<option value="${status}">${status}</option>`
             ).join('');
-            
-            document.getElementById('item-form').reset();
-            
-            // Load available fields for this bucket
+        }
+
+        async function loadBucketFields(bucket) {
             try {
                 const response = await fetch(`/api/bucket-fields/${bucket}`);
                 const fields = await response.json();
-                const container = document.getElementById('available-fields');
+                const container = document.getElementById(`fields-${bucket}`);
                 
                 if (fields.length === 0) {
-                    container.innerHTML = '<p style="color: #9ca3af; font-style: italic;">No custom fields configured for this bucket. <a href="/fields">Manage fields</a></p>';
+                    container.innerHTML = '';
                 } else {
                     container.innerHTML = fields.map(field => `
                         <div class="form-group">
@@ -483,12 +301,10 @@
                 }
             } catch (error) {
                 console.error('Failed to load bucket fields:', error);
-                document.getElementById('available-fields').innerHTML = '<p style="color: #ef4444;">Failed to load fields</p>';
             }
         }
-        
+
         function createFieldInput(field) {
-            console.log('Creating field input for:', field);
             const fieldId = `field-${field.id}`;
             const defaultValue = field.defaultValue;
             
@@ -506,18 +322,15 @@
                     return `<input type="datetime-local" class="form-input" id="${fieldId}" data-field-id="${field.id}" data-field-type="${field.type}" ${datetimeValue}>`;
                     
                 case 'array':
-                    console.log('Array field - arrayOptions:', field.arrayOptions, 'multiSelect:', field.multiSelect);
                     if (field.arrayOptions && field.arrayOptions.length > 0) {
                         const multiple = field.multiSelect ? 'multiple' : '';
                         const options = field.arrayOptions.map(option => {
                             const selected = defaultValue && defaultValue.includes(option) ? 'selected' : '';
                             return `<option value="${option}" ${selected}>${option}</option>`;
                         }).join('');
-                        console.log('Rendering dropdown with options:', options);
                         return `<select class="form-select" id="${fieldId}" data-field-id="${field.id}" data-field-type="${field.type}" data-multi-select="${field.multiSelect}" ${multiple}>${options}</select>`;
                     } else {
                         const arrayValue = defaultValue && Array.isArray(defaultValue) ? defaultValue.join(', ') : '';
-                        console.log('Rendering text input for array field');
                         return `<input type="text" class="form-input" id="${fieldId}" placeholder="Comma-separated values" data-field-id="${field.id}" data-field-type="${field.type}" value="${arrayValue}">`;
                     }
                     
@@ -526,28 +339,23 @@
                     return `<input type="text" class="form-input" id="${fieldId}" data-field-id="${field.id}" data-field-type="${field.type}" ${textValue}>`;
             }
         }
-        
-        function closeModal() {
-            document.getElementById('item-modal').style.display = 'none';
-        }
-        
-        function closeDetailModal() {
-            document.getElementById('item-detail-modal').style.display = 'none';
-        }
-        
-        document.getElementById('item-form').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            
-            const title = document.getElementById('item-title').value;
-            const description = document.getElementById('item-description').value;
-            const statusName = document.getElementById('item-status').value;
-            
+
+        async function createItem(bucket) {
+            const title = document.getElementById(`title-${bucket}`).value.trim();
+            const description = document.getElementById(`description-${bucket}`).value.trim();
+            const statusName = document.getElementById(`status-${bucket}`).value;
+
+            if (!title) {
+                alert('Title is required');
+                return;
+            }
+
             // Collect custom fields
             const extraFields = {};
-            document.querySelectorAll('[data-field-id]').forEach(input => {
+            document.querySelectorAll(`#fields-${bucket} [data-field-id]`).forEach(input => {
                 const fieldId = input.dataset.fieldId;
                 const fieldType = input.dataset.fieldType;
-                const fieldName = input.previousElementSibling.textContent.split(' (')[0]; // Extract name from label
+                const fieldName = input.previousElementSibling.textContent.split(' (')[0];
                 
                 let value;
                 switch(fieldType) {
@@ -577,22 +385,16 @@
                     extraFields[fieldName] = { type: fieldType, value };
                 }
             });
-            
+
             try {
                 const response = await fetch('/api/items', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        bucket: currentBucket,
-                        title,
-                        description,
-                        statusName,
-                        extraFields
-                    })
+                    body: JSON.stringify({ bucket, title, description, statusName, extraFields })
                 });
-                
+
                 if (response.ok) {
-                    closeModal();
+                    cancelAdd(bucket);
                     loadItems();
                 } else {
                     alert('Failed to create item');
@@ -601,36 +403,118 @@
                 console.error('Failed to create item:', error);
                 alert('Failed to create item');
             }
-        });
-        
-        // Search functionality
-        document.getElementById('search-input').addEventListener('input', async (e) => {
-            const query = e.target.value.trim();
-            if (query.length < 2) {
-                displayItems(allItems);
-                return;
+        }
+
+        function showItemDetails(itemId) {
+            const item = allItems.find(i => i.id === itemId);
+            if (!item) return;
+
+            currentItem = item;
+            document.getElementById('panel-title').textContent = item.title;
+            document.getElementById('panel-content').innerHTML = `
+                <div class="form-group">
+                    <label class="form-label">Description</label>
+                    <p>${item.description || 'No description'}</p>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Status</label>
+                    <p>${item.status || 'No status'}</p>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Custom Fields</label>
+                    ${Object.keys(item.extraFields || {}).length > 0 ? 
+                        Object.entries(item.extraFields).map(([key, fieldData]) => 
+                            `<p><strong>${key}:</strong> ${formatFieldValue(fieldData)}</p>`
+                        ).join('') : 
+                        '<p>No custom fields</p>'
+                    }
+                </div>
+            `;
+            document.getElementById('detail-panel').classList.add('open');
+        }
+
+        function closePanel() {
+            document.getElementById('detail-panel').classList.remove('open');
+        }
+
+        function formatFieldValue(fieldData) {
+            if (typeof fieldData !== 'object' || !fieldData.type) {
+                return fieldData;
             }
             
-            try {
-                const response = await fetch(`/api/search?q=${encodeURIComponent(query)}`);
-                const results = await response.json();
-                displayItems(results);
-            } catch (error) {
-                console.error('Search failed:', error);
+            const { type, value } = fieldData;
+            
+            switch(type) {
+                case 'boolean':
+                    return value ? '✓' : '✗';
+                case 'array':
+                    return Array.isArray(value) ? value.join(', ') : value;
+                case 'date':
+                    return new Date(value).toLocaleDateString();
+                case 'datetime':
+                    return new Date(value).toLocaleString();
+                default:
+                    return value;
             }
-        });
-        
-        // Close modals when clicking outside
-        document.getElementById('item-modal').addEventListener('click', (e) => {
-            if (e.target.id === 'item-modal') closeModal();
-        });
-        
-        document.getElementById('item-detail-modal').addEventListener('click', (e) => {
-            if (e.target.id === 'item-detail-modal') closeDetailModal();
-        });
-        
+        }
+
+        let allItems = [];
+
+        async function loadItems() {
+            try {
+                const response = await fetch('/api/items');
+                allItems = await response.json();
+                displayItems(allItems);
+            } catch (error) {
+                console.error('Failed to load items:', error);
+            }
+        }
+
+        function displayItems(items) {
+            ['PROJECT', 'AREA', 'RESOURCE', 'ARCHIVE', 'ACTION'].forEach(bucket => {
+                const container = document.getElementById(`${bucket.toLowerCase()}s-items`);
+                const bucketItems = items.filter(item => item.bucket === bucket);
+                
+                if (bucketItems.length === 0) {
+                    container.innerHTML = `<div class="empty-state">No ${bucket.toLowerCase()}s yet</div>`;
+                } else {
+                    container.innerHTML = bucketItems.map(item => {
+                        const customFields = Object.entries(item.extraFields || {}).map(([key, fieldData]) => {
+                            const displayValue = formatFieldValue(fieldData);
+                            return `<span class="field-badge">${key}: ${displayValue}</span>`;
+                        }).join('');
+                        
+                        return `
+                            <div class="item" onclick="showItemDetails('${item.id}')">
+                                <div class="item-title">${item.title}</div>
+                                ${item.description ? `<div class="item-desc">${item.description}</div>` : ''}
+                                <div class="item-meta">
+                                    <span class="status-badge">${item.status || 'No Status'}</span>
+                                    ${customFields}
+                                </div>
+                            </div>
+                        `;
+                    }).join('');
+                }
+            });
+        }
+
         // Load items on page load
         loadItems();
+
+        // Search functionality
+        document.getElementById('search-input').addEventListener('input', (e) => {
+            const query = e.target.value.toLowerCase();
+            if (query) {
+                const filtered = allItems.filter(item => 
+                    item.title.toLowerCase().includes(query) ||
+                    (item.description && item.description.toLowerCase().includes(query))
+                );
+                displayItems(filtered);
+            } else {
+                displayItems(allItems);
+            }
+        });
     </script>
 </body>
 </html>
