@@ -683,7 +683,17 @@ function App() {
                                         </button>
                                       )}
                                     </div>
-                                    <span className="text-xs text-gray-500 font-medium">{config.name.charAt(0)}</span>
+                                    <div className="relative group/label">
+                                      <span 
+                                        className="text-xs text-gray-500 font-medium cursor-help"
+                                      >
+                                        {config.name.charAt(0)}
+                                      </span>
+                                      {/* Individual tooltip for this label only */}
+                                      <div className="absolute top-full left-1/2 transform -translate-x-1/2 mt-1 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover/label:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-30">
+                                        {config.name}
+                                      </div>
+                                    </div>
                                   </div>
                                 );
                               })}
