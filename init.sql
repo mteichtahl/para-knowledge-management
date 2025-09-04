@@ -101,28 +101,28 @@ INSERT INTO statuses (bucket, name, "order") VALUES
 ('ACTION', 'Done', 4);
 
 -- Insert priority custom field
-INSERT INTO custom_fields (name, type, description, default_value, array_options, multi_select) VALUES
-('priority', 'array', 'Priority level', '["Medium"]', ARRAY['High', 'Medium', 'Low'], false);
+INSERT INTO custom_fields (name, label, type, description, default_value, array_options, multi_select) VALUES
+('priority', 'Priority', 'array', 'Priority level', '["Medium"]', ARRAY['High', 'Medium', 'Low'], false);
 
 -- Insert status custom field
-INSERT INTO custom_fields (name, type, description, default_value, array_options, multi_select) VALUES
-('status', 'array', 'Status', '["To Do"]', ARRAY['To Do', 'On Hold', 'In Progress', 'In Review', 'Not Doing', 'Done'], false);
+INSERT INTO custom_fields (name, label, type, description, default_value, array_options, multi_select) VALUES
+('status', 'Status', 'array', 'Status', '["To Do"]', ARRAY['To Do', 'On Hold', 'In Progress', 'In Review', 'Not Doing', 'Done'], false);
 
 -- Insert urgency custom field
-INSERT INTO custom_fields (name, type, description, default_value, array_options, multi_select) VALUES
-('urgency', 'array', 'Urgency level', '["Medium"]', ARRAY['Extreme', 'High', 'Medium', 'Low'], false);
+INSERT INTO custom_fields (name, label, type, description, default_value, array_options, multi_select) VALUES
+('urgency', 'Urgency', 'array', 'Urgency level', '["Medium"]', ARRAY['Extreme', 'High', 'Medium', 'Low'], false);
 
 -- Insert start date custom field
-INSERT INTO custom_fields (name, type, description, default_value, array_options, multi_select) VALUES
-('startDate', 'date', 'Start date', null, null, false);
+INSERT INTO custom_fields (name, label, type, description, default_value, array_options, multi_select) VALUES
+('startDate', 'Start Date', 'date', 'Start date', null, null, false);
 
 -- Insert end date custom field
-INSERT INTO custom_fields (name, type, description, default_value, array_options, multi_select) VALUES
-('endDate', 'date', 'End date', null, null, false);
+INSERT INTO custom_fields (name, label, type, description, default_value, array_options, multi_select) VALUES
+('endDate', 'End Date', 'date', 'End date', null, null, false);
 
 -- Insert owner custom field
-INSERT INTO custom_fields (name, type, description, default_value, array_options, multi_select) VALUES
-('owner', 'text', 'Owner', null, null, false);
+INSERT INTO custom_fields (name, label, type, description, default_value, array_options, multi_select) VALUES
+('owner', 'Owner', 'text', 'Owner', null, null, false);
 
 -- Assign priority field as required to Projects, Areas, and Actions only
 INSERT INTO bucket_fields (bucket, field_id, required) VALUES

@@ -123,6 +123,21 @@ const server = createServer(async (req, res) => {
     return;
   }
 
+  if (method === 'PUT' && pathname.startsWith('/api/custom-fields/')) {
+    try {
+      const fieldId = pathname.split('/')[3];
+      const fieldData = JSON.parse(body);
+      const field = await service.updateCustomField(fieldId, fieldData);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(field));
+    } catch (error) {
+      console.error('Error updating custom field:', error);
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Failed to update custom field' }));
+    }
+    return;
+  }
+
   // Bucket fields
   if (method === 'GET' && pathname.startsWith('/api/bucket-fields/')) {
     try {

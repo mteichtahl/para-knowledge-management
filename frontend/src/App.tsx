@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Search, Plus, Settings, X, Target, Briefcase, BookOpen, Archive, CheckSquare, CheckCircle, Link, ChevronDown, ChevronRight } from 'lucide-react'
+import { Search, Plus, Settings, X, Target, Briefcase, BookOpen, Archive, CheckSquare, CheckCircle, Link, ChevronDown, ChevronRight, Edit } from 'lucide-react'
 import './App.css'
 
 interface Item {
@@ -76,6 +76,7 @@ function App() {
   // Predefined fields that cannot be removed from buckets
   const predefinedFields = ['priority', 'status', 'urgency', 'startDate', 'endDate', 'owner']
   const [showCustomFields, setShowCustomFields] = useState(false)
+  const [editingField, setEditingField] = useState<string | null>(null)
   const [formErrors, setFormErrors] = useState<Record<string, boolean>>({})
   const [newField, setNewField] = useState({
     name: '',
@@ -160,6 +161,31 @@ function App() {
   const openFieldsPanel = () => {
     setPanelMode('fields')
     setShowPanel(true)
+  }
+
+  const updateCustomField = async (fieldId: string, fieldData: any) => {
+    try {
+      const response = await fetch(`/api/custom-fields/${fieldId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(fieldData)
+      })
+
+      if (response.ok) {
+        await loadCustomFields()
+        await loadBucketFields()
+        setEditingField(null)
+      } else {
+        const errorText = await response.text()
+        console.error('Failed to update custom field:', errorText)
+        alert('Failed to update custom field: ' + errorText)
+      }
+    } catch (error) {
+      console.error('Failed to update custom field:', error)
+      alert('Failed to update custom field')
+    }
   }
 
   const createCustomField = async () => {
@@ -612,95 +638,207 @@ function App() {
                     <div className="border-t border-gray-200 p-3 space-y-2">
                       {customFields.map(field => (
                         <div key={field.id} className="group border border-gray-200 rounded-lg p-3 hover:border-gray-300 transition-all">
-                          <div className="flex items-start justify-between mb-2">
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2 mb-1">
-                                <h4 className="font-medium text-gray-900 truncate">{field.label || field.name}</h4>
-                                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-700 shrink-0">
-                                  {field.type}
-                                </span>
-                              </div>
-                              {field.description && (
-                                <p className="text-xs text-gray-500 mb-2 line-clamp-2">{field.description}</p>
-                              )}
-                              {field.arrayOptions && (
-                                <div className="flex flex-wrap gap-1 mb-2">
-                                  {field.arrayOptions.slice(0, 3).map((option, idx) => (
-                                    <span key={idx} className="inline-flex items-center px-1.5 py-0.5 rounded text-xs bg-blue-50 text-blue-700">
-                                      {option}
+                          {editingField === field.id ? (
+                            /* Edit Form */
+                            <EditFieldForm 
+                              field={field} 
+                              onSave={(fieldData) => updateCustomField(field.id, fieldData)}
+                              onCancel={() => setEditingField(null)}
+                            />
+                          ) : (
+                            /* Display Mode */
+                            <>
+                              <div className="flex items-start justify-between mb-2">
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-2 mb-1">
+                                    <h4 className="font-medium text-gray-900 truncate">{field.label || field.name}</h4>
+                                    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-700 shrink-0">
+                                      {field.type}
                                     </span>
-                                  ))}
-                                  {field.arrayOptions.length > 3 && (
-                                    <span className="text-xs text-gray-400">+{field.arrayOptions.length - 3}</span>
+                                  </div>
+                                  {field.description && (
+                                    <p className="text-xs text-gray-500 mb-2 line-clamp-2">{field.description}</p>
                                   )}
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                          
-                          {/* Compact bucket assignments */}
-                          <div className="flex items-center justify-between pt-2 border-t border-gray-100">
-                            <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Buckets</span>
-                            <div className="flex gap-2">
-                              {Object.entries(bucketConfig).map(([bucket, config]) => {
-                                const isAssigned = bucketFields[bucket]?.some(f => f.id === field.id);
-                                const isRequired = bucketFields[bucket]?.find(f => f.id === field.id)?.required;
-                                const isPredefined = predefinedFields.includes(field.name);
-                                
-                                return (
-                                  <div key={bucket} className="flex flex-col items-center gap-1">
-                                    <div className="relative">
-                                      <button
-                                        onClick={() => toggleFieldForBucket(field.id, bucket)}
-                                        disabled={isPredefined && isAssigned}
-                                        className={`relative flex items-center justify-center w-7 h-7 rounded text-xs font-medium transition-all ${
-                                          isAssigned 
-                                            ? `bg-gray-900 text-white shadow-sm ${isPredefined ? 'cursor-not-allowed opacity-75' : ''}` 
-                                            : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
-                                        }`}
-                                        title={`${config.name}${isAssigned ? (isRequired ? ' (Required)' : ' (Optional)') : ''}${isPredefined && isAssigned ? ' - Predefined field' : ''}`}
-                                      >
-                                        <config.icon className="w-3.5 h-3.5" />
-                                        {isAssigned && isRequired && (
-                                          <div className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-orange-500 rounded-full border border-white"></div>
-                                        )}
-                                        {isPredefined && isAssigned && (
-                                          <div className="absolute -bottom-0.5 -left-0.5 w-2 h-2 bg-blue-500 rounded-full border border-white"></div>
-                                        )}
-                                      </button>
-                                      {isAssigned && (
-                                        <button
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            toggleFieldRequired(field.id, bucket, !isRequired);
-                                          }}
-                                          className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full border border-white text-xs flex items-center justify-center transition-colors font-bold ${
-                                            isRequired ? 'bg-orange-500 text-white' : 'bg-blue-500 text-white'
-                                          }`}
-                                          title={isRequired ? 'Required' : 'Optional'}
-                                        >
-                                          {isRequired ? '!' : '✓'}
-                                        </button>
+                                  {field.arrayOptions && (
+                                    <div className="flex flex-wrap gap-1 mb-2">
+                                      {field.arrayOptions.slice(0, 3).map((option, idx) => (
+                                        <span key={idx} className="inline-flex items-center px-1.5 py-0.5 rounded text-xs bg-blue-50 text-blue-700">
+                                          {option}
+                                        </span>
+                                      ))}
+                                      {field.arrayOptions.length > 3 && (
+                                        <span className="text-xs text-gray-400">+{field.arrayOptions.length - 3}</span>
                                       )}
                                     </div>
-                                    <div className="relative group/label">
-                                      <span 
-                                        className="text-xs text-gray-500 font-medium cursor-help"
-                                      >
-                                        {config.name.charAt(0)}
-                                      </span>
-                                      {/* Individual tooltip for this label only */}
-                                      <div className="absolute top-full left-1/2 transform -translate-x-1/2 mt-1 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover/label:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-30">
-                                        {config.name}
+                                  )}
+                                </div>
+                                {!predefinedFields.includes(field.name) && (
+                                  <button
+                                    onClick={() => setEditingField(field.id)}
+                                    className="opacity-0 group-hover:opacity-100 p-1 text-gray-400 hover:text-gray-600 transition-all"
+                                    title="Edit field"
+                                  >
+                                    <Edit className="w-4 h-4" />
+                                  </button>
+                                )}
+                              </div>
+                              
+                              {/* Compact bucket assignments */}
+                              <div className="flex items-center justify-between pt-2 border-t border-gray-100">
+                                <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Buckets</span>
+                                <div className="flex gap-2">
+                                  {Object.entries(bucketConfig).map(([bucket, config]) => {
+                                    const isAssigned = bucketFields[bucket]?.some(f => f.id === field.id);
+                                    const isRequired = bucketFields[bucket]?.find(f => f.id === field.id)?.required;
+                                    const isPredefined = predefinedFields.includes(field.name);
+                                    
+                                    return (
+                                      <div key={bucket} className="flex flex-col items-center gap-1">
+                                        <div className="relative">
+                                          <button
+                                            onClick={() => toggleFieldForBucket(field.id, bucket)}
+                                            disabled={isPredefined && isAssigned}
+                                            className={`relative flex items-center justify-center w-7 h-7 rounded text-xs font-medium transition-all ${
+                                              isAssigned 
+                                                ? `bg-gray-900 text-white shadow-sm ${isPredefined ? 'cursor-not-allowed opacity-75' : ''}` 
+                                                : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                                            }`}
+                                            title={`${config.name}${isAssigned ? (isRequired ? ' (Required)' : ' (Optional)') : ''}${isPredefined && isAssigned ? ' - Predefined field' : ''}`}
+                                          >
+                                            <config.icon className="w-3.5 h-3.5" />
+                                            {isAssigned && isRequired && (
+                                              <div className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-orange-500 rounded-full border border-white"></div>
+                                            )}
+                                            {isPredefined && isAssigned && (
+                                              <div className="absolute -bottom-0.5 -left-0.5 w-2 h-2 bg-blue-500 rounded-full border border-white"></div>
+                                            )}
+                                          </button>
+                                          {isAssigned && (
+                                            <button
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                toggleFieldRequired(field.id, bucket, !isRequired);
+                                              }}
+                                              className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full border border-white text-xs flex items-center justify-center transition-colors font-bold ${
+                                                isRequired ? 'bg-orange-500 text-white' : 'bg-blue-500 text-white'
+                                              }`}
+                                              title={isRequired ? 'Required' : 'Optional'}
+                                            >
+                                              {isRequired ? '!' : '✓'}
+                                            </button>
+                                          )}
+                                        </div>
+                                        <div className="relative group/label">
+                                          <span 
+                                            className="text-xs text-gray-500 font-medium cursor-help"
+                                          >
+                                            {config.name.charAt(0)}
+                                          </span>
+                                          {/* Individual tooltip for this label only */}
+                                          <div className="absolute top-full left-1/2 transform -translate-x-1/2 mt-1 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover/label:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-30">
+                                            {config.name}
+                                          </div>
+                                        </div>
                                       </div>
-                                    </div>
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          </div>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            </>
+                          )}
                         </div>
                       ))}
+
+                      {/* Edit Field Form Component */}
+                      {(() => {
+                        const EditFieldForm = ({ field, onSave, onCancel }) => {
+                          const [editData, setEditData] = useState({
+                            name: field.name,
+                            label: field.label || '',
+                            type: field.type,
+                            description: field.description || '',
+                            arrayOptions: field.arrayOptions?.join(', ') || ''
+                          })
+
+                          const handleSave = () => {
+                            const fieldData = {
+                              name: editData.name.trim(),
+                              label: editData.label.trim() || undefined,
+                              type: editData.type,
+                              description: editData.description.trim() || undefined,
+                              arrayOptions: editData.type === 'array' ? editData.arrayOptions.split(',').map(s => s.trim()).filter(s => s) : undefined,
+                              multiSelect: field.multiSelect
+                            }
+                            onSave(fieldData)
+                          }
+
+                          return (
+                            <div className="space-y-3">
+                              <div className="grid grid-cols-2 gap-3">
+                                <input
+                                  type="text"
+                                  placeholder="Field name"
+                                  value={editData.name}
+                                  onChange={(e) => setEditData({...editData, name: e.target.value})}
+                                  className="px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                />
+                                <input
+                                  type="text"
+                                  placeholder="Label (optional)"
+                                  value={editData.label}
+                                  onChange={(e) => setEditData({...editData, label: e.target.value})}
+                                  className="px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                />
+                              </div>
+                              
+                              <select
+                                value={editData.type}
+                                onChange={(e) => setEditData({...editData, type: e.target.value})}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                              >
+                                <option value="text">Text</option>
+                                <option value="boolean">Boolean</option>
+                                <option value="date">Date</option>
+                                <option value="array">Array</option>
+                              </select>
+                              
+                              <input
+                                type="text"
+                                placeholder="Description (optional)"
+                                value={editData.description}
+                                onChange={(e) => setEditData({...editData, description: e.target.value})}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                              />
+                              
+                              {editData.type === 'array' && (
+                                <input
+                                  type="text"
+                                  placeholder="Options (comma-separated)"
+                                  value={editData.arrayOptions}
+                                  onChange={(e) => setEditData({...editData, arrayOptions: e.target.value})}
+                                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                />
+                              )}
+                              
+                              <div className="flex gap-2">
+                                <button
+                                  onClick={handleSave}
+                                  className="px-3 py-1.5 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm transition-colors"
+                                >
+                                  Save
+                                </button>
+                                <button
+                                  onClick={onCancel}
+                                  className="px-3 py-1.5 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 text-sm transition-colors"
+                                >
+                                  Cancel
+                                </button>
+                              </div>
+                            </div>
+                          )
+                        }
+                        return null
+                      })()}
                     </div>
                   )}
                 </div>

@@ -43,7 +43,18 @@ export class PARAService {
   }
 
   async getCustomFields(): Promise<any[]> {
-    return this.db.select().from(customFields).orderBy(asc(customFields.name));
+    return this.db.select({
+      id: customFields.id,
+      name: customFields.name,
+      label: customFields.label,
+      type: customFields.type,
+      description: customFields.description,
+      defaultValue: customFields.defaultValue,
+      arrayOptions: customFields.arrayOptions,
+      multiSelect: customFields.multiSelect,
+      createdAt: customFields.createdAt,
+      updatedAt: customFields.updatedAt
+    }).from(customFields).orderBy(asc(customFields.name));
   }
 
   async createCustomField(input: any): Promise<any> {
@@ -56,6 +67,23 @@ export class PARAService {
       arrayOptions: input.arrayOptions,
       multiSelect: input.multiSelect
     }).returning();
+    
+    return result[0];
+  }
+
+  async updateCustomField(id: string, input: any): Promise<any> {
+    const result = await this.db.update(customFields)
+      .set({
+        name: input.name,
+        label: input.label,
+        type: input.type,
+        description: input.description,
+        defaultValue: input.defaultValue,
+        arrayOptions: input.arrayOptions,
+        multiSelect: input.multiSelect
+      })
+      .where(eq(customFields.id, id))
+      .returning();
     
     return result[0];
   }
