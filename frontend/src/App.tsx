@@ -73,13 +73,15 @@ function App() {
   const [customFields, setCustomFields] = useState<CustomField[]>([])
   const [showAddField, setShowAddField] = useState(false)
   const [showBucketAssignments, setShowBucketAssignments] = useState(false)
+  const [formErrors, setFormErrors] = useState<Record<string, boolean>>({})
   const [newField, setNewField] = useState({
     name: '',
     type: 'text',
     description: '',
     defaultValue: '',
     arrayOptions: '',
-    multiSelect: false
+    multiSelect: false,
+    required: false
   })
 
   useEffect(() => {
@@ -168,6 +170,7 @@ function App() {
         description: newField.description.trim() || undefined,
         type: newField.type,
         defaultValue: newField.defaultValue.trim() || undefined,
+        required: newField.required,
         arrayOptions: newField.type === 'array' ? newField.arrayOptions.split(',').map(s => s.trim()).filter(s => s) : undefined,
         multiSelect: newField.multiSelect
       }
@@ -184,7 +187,7 @@ function App() {
         console.log('Field created successfully')
         await loadCustomFields()
         setShowAddField(false)
-        setNewField({ name: '', description: '', type: 'text', defaultValue: '', arrayOptions: '', multiSelect: false })
+        setNewField({ name: '', description: '', type: 'text', defaultValue: '', arrayOptions: '', multiSelect: false, required: false })
       } else {
         const errorText = await response.text()
         let errorMessage = 'Unknown error'
@@ -203,29 +206,79 @@ function App() {
     }
   }
 
-  const toggleFieldForBucket = async (fieldId: string, bucket: string) => {
-    // For now, just update the UI state locally without making API calls
-    // This allows users to see the intended behavior
-    const currentAssignments = bucketFields[bucket] || []
-    const isAssigned = currentAssignments.some(f => f.id === fieldId)
+  const validateForm = (formData: FormData) => {
+    const errors: Record<string, boolean> = {}
+    let hasErrors = false
     
-    if (isAssigned) {
-      // Remove from local state
-      setBucketFields(prev => ({
-        ...prev,
-        [bucket]: prev[bucket]?.filter(f => f.id !== fieldId) || []
-      }))
-      console.log(`Removed field ${fieldId} from bucket ${bucket} (local only)`)
-    } else {
-      // Add to local state
-      const field = customFields.find(f => f.id === fieldId)
-      if (field) {
-        setBucketFields(prev => ({
-          ...prev,
-          [bucket]: [...(prev[bucket] || []), field]
-        }))
-        console.log(`Added field ${fieldId} to bucket ${bucket} (local only)`)
+    bucketFields[panelBucket]?.forEach(field => {
+      if (field.required) {
+        const value = formData.get(`custom_${field.name}`)
+        if (!value || value.toString().trim() === '') {
+          errors[field.name] = true
+          hasErrors = true
+        }
       }
+    })
+    
+    setFormErrors(errors)
+    return !hasErrors
+  }
+
+  const toggleFieldRequired = async (fieldId: string, bucket: string, required: boolean) => {
+    try {
+      // First remove the existing assignment
+      await fetch(`/api/bucket-fields/${bucket}/${fieldId}`, {
+        method: 'DELETE'
+      })
+      
+      // Then add it back with the new required setting
+      const response = await fetch('/api/bucket-fields', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          bucketType: bucket,
+          customFieldId: fieldId,
+          required: required
+        })
+      })
+      
+      if (response.ok) {
+        await loadBucketFields()
+      }
+    } catch (error) {
+      console.error('Failed to toggle field required status:', error)
+    }
+  }
+
+  const toggleFieldForBucket = async (fieldId: string, bucket: string) => {
+    try {
+      const isAssigned = bucketFields[bucket]?.some(f => f.id === fieldId)
+      
+      if (isAssigned) {
+        // Remove assignment
+        const response = await fetch(`/api/bucket-fields/${bucket}/${fieldId}`, {
+          method: 'DELETE'
+        })
+        if (response.ok) {
+          await loadBucketFields()
+        }
+      } else {
+        // Add assignment
+        const response = await fetch('/api/bucket-fields', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            bucketType: bucket,
+            customFieldId: fieldId,
+            required: false
+          })
+        })
+        if (response.ok) {
+          await loadBucketFields()
+        }
+      }
+    } catch (error) {
+      console.error('Failed to toggle field assignment:', error)
     }
   }
 
@@ -504,6 +557,18 @@ function App() {
                         placeholder="Optional default value"
                       />
                     </div>
+                    
+                    <div>
+                      <label className="flex items-center">
+                        <input
+                          type="checkbox"
+                          checked={newField.required}
+                          onChange={(e) => setNewField({...newField, required: e.target.checked})}
+                          className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 focus:ring-2 mr-2"
+                        />
+                        <span className="text-sm font-medium text-gray-700">Required field</span>
+                      </label>
+                    </div>
                     {newField.type === 'array' && (
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Options (comma-separated)</label>
@@ -586,6 +651,8 @@ function App() {
                                   <label className="flex items-center text-sm text-gray-600">
                                     <input
                                       type="checkbox"
+                                      checked={bucketFields[bucket]?.find(f => f.id === field.id)?.required || false}
+                                      onChange={(e) => toggleFieldRequired(field.id, bucket, e.target.checked)}
                                       className="w-3 h-3 text-red-600 border-gray-300 rounded mr-2"
                                     />
                                     Required
@@ -604,13 +671,21 @@ function App() {
               <form onSubmit={(e) => {
                 e.preventDefault()
                 const formData = new FormData(e.currentTarget)
+                
+                // Validate form before proceeding
+                if (!validateForm(formData)) {
+                  return // Stop submission if validation fails
+                }
+                
                 const title = formData.get('title') as string
                 const description = formData.get('description') as string
                 const status = formData.get('status') as string
                 
                 const extraFields: Record<string, any> = {}
+                
                 bucketFields[panelBucket]?.forEach(field => {
                   const value = formData.get(`custom_${field.name}`)
+                  
                   if (value !== null) {
                     if (field.type === 'boolean') {
                       extraFields[field.name] = value === 'on'
@@ -626,6 +701,7 @@ function App() {
                   updateItem(currentEditItem.id, title, description, status, extraFields)
                 }
                 setShowPanel(false)
+                setFormErrors({}) // Clear form errors when closing
               }}>
                 <div className="space-y-6">
                   <div>
@@ -675,13 +751,23 @@ function App() {
                     <div key={field.id}>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
                         {field.name}
+                        {field.required && <span className="text-red-500 ml-1">*</span>}
+                        {formErrors[field.name] && (
+                          <span className="text-red-500 text-xs ml-2">This field is required</span>
+                        )}
                       </label>
                       {field.type === 'text' && (
                         <input
                           name={`custom_${field.name}`}
                           type="text"
+                          required={field.required}
                           defaultValue={currentEditItem?.extraFields?.[field.name] || field.defaultValue || ''}
-                          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none"
+                          className={`w-full px-4 py-3 border rounded-lg focus:outline-none ${
+                            formErrors[field.name] 
+                              ? 'border-red-500 focus:border-red-500 bg-red-50' 
+                              : 'border-gray-300 focus:border-blue-500'
+                          }`}
+                          onChange={() => setFormErrors(prev => ({...prev, [field.name]: false}))}
                         />
                       )}
                       {field.type === 'boolean' && (
@@ -696,16 +782,28 @@ function App() {
                         <input
                           name={`custom_${field.name}`}
                           type="date"
+                          required={field.required}
                           defaultValue={currentEditItem?.extraFields?.[field.name] || field.defaultValue || ''}
-                          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none"
+                          className={`w-full px-4 py-3 border rounded-lg focus:outline-none ${
+                            formErrors[field.name] 
+                              ? 'border-red-500 focus:border-red-500 bg-red-50' 
+                              : 'border-gray-300 focus:border-blue-500'
+                          }`}
+                          onChange={() => setFormErrors(prev => ({...prev, [field.name]: false}))}
                         />
                       )}
                       {field.type === 'array' && (
                         <select
                           name={`custom_${field.name}`}
                           multiple={field.multiSelect}
+                          required={field.required}
                           defaultValue={currentEditItem?.extraFields?.[field.name] || field.defaultValue || (field.multiSelect ? [] : '')}
-                          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none"
+                          className={`w-full px-4 py-3 border rounded-lg focus:outline-none ${
+                            formErrors[field.name] 
+                              ? 'border-red-500 focus:border-red-500 bg-red-50' 
+                              : 'border-gray-300 focus:border-blue-500'
+                          }`}
+                          onChange={() => setFormErrors(prev => ({...prev, [field.name]: false}))}
                         >
                           {field.arrayOptions?.map(option => (
                             <option key={option} value={option}>{option}</option>

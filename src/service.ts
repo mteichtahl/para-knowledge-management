@@ -4,144 +4,63 @@ import { items, statuses, itemRelations, notes, customFields, bucketFields } fro
 import { CreateItemInput, CreateRelationInput, CreateNoteInput, BucketType } from './types';
 
 export class PARAService {
+  private db = db;
+
   async createItem(input: CreateItemInput): Promise<Item> {
     // Get status
     const statusQuery = input.statusName 
       ? db.select().from(statuses).where(and(eq(statuses.bucket, input.bucket), eq(statuses.name, input.statusName)))
-      : db.select().from(statuses).where(eq(statuses.bucket, input.bucket)).orderBy(asc(statuses.order));
-
+      : db.select().from(statuses).where(eq(statuses.bucket, input.bucket)).limit(1);
+    
     const statusResult = await statusQuery;
     const status = statusResult[0];
+
+    if (!status) {
+      throw new Error(`No status found for bucket ${input.bucket}`);
+    }
 
     const result = await db.insert(items).values({
       bucket: input.bucket,
       title: input.title,
       description: input.description,
-      extraFields: input.extraFields || {},
-      statusId: status?.id
+      statusId: status.id,
+      extraFields: input.extraFields || {}
     }).returning();
 
     return result[0];
   }
 
-  async getItemsByBucket(bucket: BucketType, statusName?: string): Promise<Item[]> {
-    if (statusName) {
-      return db.select({
-        id: items.id,
-        bucket: items.bucket,
-        statusId: items.statusId,
-        title: items.title,
-        description: items.description,
-        extraFields: items.extraFields,
-        embedding: items.embedding,
-        createdAt: items.createdAt,
-        updatedAt: items.updatedAt
-      })
-      .from(items)
-      .innerJoin(statuses, eq(items.statusId, statuses.id))
-      .where(and(eq(items.bucket, bucket), eq(statuses.name, statusName)));
-    }
-
-    return db.select().from(items).where(eq(items.bucket, bucket));
+  async getAllItems(): Promise<Item[]> {
+    return this.db.select().from(items);
   }
 
-  async addRelationship(input: CreateRelationInput): Promise<ItemRelation> {
-    const result = await db.insert(itemRelations).values(input).returning();
-    return result[0];
+  async updateItem(id: string, data: any) {
+    await this.db.update(items).set(data).where(eq(items.id, id));
   }
 
-  async getRelatedItems(itemId: string, relationship?: string): Promise<any[]> {
-    const baseQuery = db.select({
-      id: items.id,
-      bucket: items.bucket,
-      statusId: items.statusId,
-      title: items.title,
-      description: items.description,
-      extraFields: items.extraFields,
-      embedding: items.embedding,
-      createdAt: items.createdAt,
-      updatedAt: items.updatedAt,
-      relationshipType: itemRelations.relationship
-    })
-    .from(itemRelations)
-    .innerJoin(items, eq(itemRelations.childId, items.id));
-
-    if (relationship) {
-      return baseQuery.where(and(eq(itemRelations.parentId, itemId), eq(itemRelations.relationship, relationship)));
-    }
-
-    return baseQuery.where(eq(itemRelations.parentId, itemId));
-  }
-
-  async addNote(input: CreateNoteInput): Promise<Note> {
-    const result = await db.insert(notes).values({
-      itemId: input.itemId,
-      content: input.content,
-      tags: input.tags || []
-    }).returning();
-
-    return result[0];
-  }
-
-  async getItemNotes(itemId: string): Promise<Note[]> {
-    return db.select().from(notes).where(eq(notes.itemId, itemId));
-  }
-
-  async searchItems(query: string, bucket?: BucketType): Promise<Item[]> {
-    const searchConditions = or(
-      ilike(items.title, `%${query}%`),
-      ilike(items.description, `%${query}%`)
-    );
-
-    if (bucket) {
-      return db.select().from(items).where(and(eq(items.bucket, bucket), searchConditions));
-    }
-
-    return db.select().from(items).where(searchConditions);
-  }
-
-  async updateItemStatus(itemId: string, statusName: string): Promise<Item> {
-    const item = await db.select().from(items).where(eq(items.id, itemId));
-    if (!item[0]) throw new Error('Item not found');
-
-    const status = await db.select().from(statuses)
-      .where(and(eq(statuses.bucket, item[0].bucket), eq(statuses.name, statusName)));
-    
-    if (!status[0]) throw new Error(`Status '${statusName}' not found for bucket '${item[0].bucket}'`);
-
-    const result = await db.update(items)
-      .set({ statusId: status[0].id })
-      .where(eq(items.id, itemId))
-      .returning();
-
-    return result[0];
+  async deleteItem(id: string) {
+    await this.db.delete(items).where(eq(items.id, id));
   }
 
   async getCustomFields(): Promise<any[]> {
-    return db.query.customFields.findMany();
+    return this.db.select().from(customFields).orderBy(asc(customFields.name));
   }
 
-  async createCustomField(input: { 
-    name: string; 
-    type: string; 
-    description?: string; 
-    defaultValue?: any; 
-    arrayOptions?: string[]; 
-    multiSelect?: boolean; 
-  }): Promise<any> {
-    const result = await db.insert(customFields).values({
+  async createCustomField(input: any): Promise<any> {
+    const result = await this.db.insert(customFields).values({
       name: input.name,
-      type: input.type as any,
+      type: input.type,
       description: input.description,
       defaultValue: input.defaultValue,
       arrayOptions: input.arrayOptions,
       multiSelect: input.multiSelect
     }).returning();
+    
     return result[0];
   }
 
   async getBucketFields(bucket: BucketType): Promise<any[]> {
-    return db.select({
+    return this.db.select({
       id: customFields.id,
       name: customFields.name,
       type: customFields.type,
@@ -156,28 +75,22 @@ export class PARAService {
     .where(eq(bucketFields.bucket, bucket));
   }
 
-  async assignFieldToBucket(input: { bucket: BucketType; fieldId: string; required?: boolean }): Promise<any> {
-    console.log('assignFieldToBucket called with:', input);
-    console.log('bucket value:', input.bucket, 'type:', typeof input.bucket);
-    console.log('fieldId value:', input.fieldId, 'type:', typeof input.fieldId);
-    
-    // Ensure bucket is a valid enum value
-    const validBuckets = ['PROJECT', 'AREA', 'RESOURCE', 'ARCHIVE', 'ACTION'];
-    if (!validBuckets.includes(input.bucket)) {
-      throw new Error(`Invalid bucket type: ${input.bucket}. Must be one of: ${validBuckets.join(', ')}`);
-    }
-    
-    const result = await db.insert(bucketFields).values({
-      bucket: input.bucket as any,
-      fieldId: input.fieldId,
-      required: input.required || false
+  async assignFieldToBucket(customFieldId: string, bucketType: string, required: boolean = false) {
+    const result = await this.db.insert(bucketFields).values({
+      bucket: bucketType as BucketType,
+      fieldId: customFieldId,
+      required
     }).returning();
     return result[0];
   }
 
-  async removeFieldFromBucket(bucket: BucketType, fieldId: string): Promise<void> {
-    console.log('removeFieldFromBucket called with:', { bucket, fieldId });
-    await db.delete(bucketFields)
-      .where(and(eq(bucketFields.bucket, bucket), eq(bucketFields.fieldId, fieldId)));
+  async removeFieldFromBucket(customFieldId: string, bucketType: string) {
+    await this.db.delete(bucketFields)
+      .where(
+        and(
+          eq(bucketFields.fieldId, customFieldId),
+          eq(bucketFields.bucket, bucketType as BucketType)
+        )
+      );
   }
 }
