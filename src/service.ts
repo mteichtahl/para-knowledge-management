@@ -49,6 +49,7 @@ export class PARAService {
   async createCustomField(input: any): Promise<any> {
     const result = await this.db.insert(customFields).values({
       name: input.name,
+      label: input.label,
       type: input.type,
       description: input.description,
       defaultValue: input.defaultValue,
@@ -63,6 +64,7 @@ export class PARAService {
     return this.db.select({
       id: customFields.id,
       name: customFields.name,
+      label: customFields.label,
       type: customFields.type,
       description: customFields.description,
       defaultValue: customFields.defaultValue,

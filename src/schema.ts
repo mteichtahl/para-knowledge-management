@@ -7,6 +7,7 @@ export const fieldTypeEnum = pgEnum('field_type', ['text', 'boolean', 'array', '
 export const customFields = pgTable('custom_fields', {
   id: uuid('id').primaryKey().defaultRandom(),
   name: text('name').notNull().unique(),
+  label: text('label'),
   type: fieldTypeEnum('type').notNull(),
   description: text('description'),
   defaultValue: json('default_value'),

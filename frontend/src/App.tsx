@@ -73,9 +73,13 @@ function App() {
   const [customFields, setCustomFields] = useState<CustomField[]>([])
   const [showAddField, setShowAddField] = useState(false)
   const [showBucketAssignments, setShowBucketAssignments] = useState(false)
+  // Predefined fields that cannot be removed from buckets
+  const predefinedFields = ['priority', 'status', 'urgency', 'startDate', 'endDate', 'owner']
+  const [showCustomFields, setShowCustomFields] = useState(false)
   const [formErrors, setFormErrors] = useState<Record<string, boolean>>({})
   const [newField, setNewField] = useState({
     name: '',
+    label: '',
     type: 'text',
     description: '',
     defaultValue: '',
@@ -167,6 +171,7 @@ function App() {
     try {
       const fieldData = {
         name: newField.name.trim(),
+        label: newField.label.trim() || undefined,
         description: newField.description.trim() || undefined,
         type: newField.type,
         defaultValue: newField.defaultValue.trim() || undefined,
@@ -187,7 +192,7 @@ function App() {
         console.log('Field created successfully')
         await loadCustomFields()
         setShowAddField(false)
-        setNewField({ name: '', description: '', type: 'text', defaultValue: '', arrayOptions: '', multiSelect: false, required: false })
+        setNewField({ name: '', label: '', description: '', type: 'text', defaultValue: '', arrayOptions: '', multiSelect: false, required: false })
       } else {
         const errorText = await response.text()
         let errorMessage = 'Unknown error'
@@ -498,168 +503,191 @@ function App() {
 
           <div className="flex-1 overflow-y-auto p-6">
             {panelMode === 'fields' ? (
-              <div className="space-y-6">
+              <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <h3 className="font-medium">Custom Fields</h3>
                   <button
                     onClick={() => setShowAddField(true)}
-                    className="flex items-center px-3 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm"
+                    className="flex items-center px-2.5 py-1.5 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm transition-colors"
                   >
                     <Plus className="w-4 h-4 mr-1" />
-                    Add Field
+                    Add
                   </button>
                 </div>
 
                 {showAddField && (
-                  <div className="p-4 bg-gray-50 rounded-lg border space-y-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
+                  <div className="p-3 bg-gray-50 rounded-lg border space-y-3">
+                    <div className="grid grid-cols-2 gap-3">
                       <input
                         type="text"
+                        placeholder="Field name"
                         value={newField.name}
                         onChange={(e) => setNewField({...newField, name: e.target.value})}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                        className="px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                       />
-                    </div>
-                    
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
-                      <textarea
-                        value={newField.description}
-                        onChange={(e) => setNewField({...newField, description: e.target.value})}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
-                        rows={2}
-                        placeholder="Optional description for this field"
-                      />
-                    </div>
-                    
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Type</label>
-                      <select
-                        value={newField.type}
-                        onChange={(e) => setNewField({...newField, type: e.target.value})}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
-                      >
-                        <option value="text">Text</option>
-                        <option value="boolean">Boolean</option>
-                        <option value="date">Date</option>
-                        <option value="array">Array</option>
-                      </select>
-                    </div>
-                    
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Default Value</label>
                       <input
                         type="text"
-                        value={newField.defaultValue}
-                        onChange={(e) => setNewField({...newField, defaultValue: e.target.value})}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
-                        placeholder="Optional default value"
+                        placeholder="Label (optional)"
+                        value={newField.label}
+                        onChange={(e) => setNewField({...newField, label: e.target.value})}
+                        className="px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                       />
                     </div>
                     
-                    <div>
-                      <label className="flex items-center">
+                    <select
+                      value={newField.type}
+                      onChange={(e) => setNewField({...newField, type: e.target.value})}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    >
+                      <option value="text">Text</option>
+                      <option value="boolean">Boolean</option>
+                      <option value="date">Date</option>
+                      <option value="array">Array</option>
+                    </select>
+                    
+                    <input
+                      type="text"
+                      placeholder="Description (optional)"
+                      value={newField.description}
+                      onChange={(e) => setNewField({...newField, description: e.target.value})}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    />
+                    
+                    {newField.type === 'array' && (
+                      <input
+                        type="text"
+                        placeholder="Options (comma-separated)"
+                        value={newField.arrayOptions}
+                        onChange={(e) => setNewField({...newField, arrayOptions: e.target.value})}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      />
+                    )}
+                    
+                    <div className="flex items-center justify-between">
+                      <label className="flex items-center text-sm">
                         <input
                           type="checkbox"
                           checked={newField.required}
                           onChange={(e) => setNewField({...newField, required: e.target.checked})}
-                          className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 focus:ring-2 mr-2"
+                          className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 mr-2"
                         />
-                        <span className="text-sm font-medium text-gray-700">Required field</span>
+                        Required
                       </label>
-                    </div>
-                    {newField.type === 'array' && (
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Options (comma-separated)</label>
-                        <input
-                          type="text"
-                          value={newField.arrayOptions}
-                          onChange={(e) => setNewField({...newField, arrayOptions: e.target.value})}
-                          placeholder="low, medium, high"
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
-                        />
+                      <div className="flex gap-2">
+                        <button
+                          onClick={createCustomField}
+                          className="px-3 py-1.5 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm transition-colors"
+                        >
+                          Save
+                        </button>
+                        <button
+                          onClick={() => setShowAddField(false)}
+                          className="px-3 py-1.5 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 text-sm transition-colors"
+                        >
+                          Cancel
+                        </button>
                       </div>
-                    )}
-                    <div className="flex gap-2">
-                      <button
-                        onClick={createCustomField}
-                        className="px-3 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm"
-                      >
-                        Save
-                      </button>
-                      <button
-                        onClick={() => setShowAddField(false)}
-                        className="px-3 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 text-sm"
-                      >
-                        Cancel
-                      </button>
                     </div>
                   </div>
                 )}
 
-                <div className="space-y-3">
-                  {customFields.map(field => (
-                    <div key={field.id} className="border border-gray-200 rounded-lg p-4">
-                      <div className="flex items-center justify-between mb-3">
-                        <div>
-                          <h4 className="font-medium">{field.name}</h4>
-                          <p className="text-sm text-gray-600">{field.type}</p>
-                          {field.description && (
-                            <p className="text-sm text-gray-500 mt-1">{field.description}</p>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="mt-6 border-t pt-6">
+                {/* Fields List */}
+                <div className="border border-gray-200 rounded-lg">
                   <button
-                    onClick={() => setShowBucketAssignments(!showBucketAssignments)}
-                    className="flex items-center justify-between w-full text-left p-3 rounded-lg hover:bg-gray-50 transition-colors border border-gray-200"
+                    onClick={() => setShowCustomFields(!showCustomFields)}
+                    className="flex items-center justify-between w-full p-3 text-left hover:bg-gray-50 transition-colors"
                   >
-                    <h3 className="text-lg font-medium text-gray-900">Bucket Assignments</h3>
-                    {showBucketAssignments ? (
-                      <ChevronDown className="w-5 h-5 text-gray-500" />
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium text-gray-900">Custom Fields</span>
+                      <span className="text-sm text-gray-500">({customFields.length})</span>
+                    </div>
+                    {showCustomFields ? (
+                      <ChevronDown className="w-4 h-4 text-gray-500" />
                     ) : (
-                      <ChevronRight className="w-5 h-5 text-gray-500" />
+                      <ChevronRight className="w-4 h-4 text-gray-500" />
                     )}
                   </button>
                   
-                  {showBucketAssignments && (
-                    <div className="mt-4 space-y-4">
-                      {customFields.map((field) => (
-                        <div key={field.id} className="border border-gray-200 rounded-lg p-4">
-                          <h4 className="font-medium text-gray-900 mb-3">{field.name}</h4>
-                          <div className="grid grid-cols-1 gap-3">
-                            {Object.entries(bucketConfig).map(([bucket, config]) => (
-                              <div key={bucket} className="flex items-center justify-between p-3 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors">
-                                <label className="flex items-center cursor-pointer">
-                                  <input
-                                    type="checkbox"
-                                    checked={bucketFields[bucket]?.some(f => f.id === field.id) || false}
-                                    onChange={() => toggleFieldForBucket(field.id, bucket)}
-                                    className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
-                                  />
-                                  <div className="ml-3 flex items-center">
-                                    <config.icon className="w-4 h-4 mr-2" style={{ color: config.color }} />
-                                    <span className="text-sm font-medium text-gray-900">{config.name}</span>
-                                  </div>
-                                </label>
-                                {bucketFields[bucket]?.some(f => f.id === field.id) && (
-                                  <label className="flex items-center text-sm text-gray-600">
-                                    <input
-                                      type="checkbox"
-                                      checked={bucketFields[bucket]?.find(f => f.id === field.id)?.required || false}
-                                      onChange={(e) => toggleFieldRequired(field.id, bucket, e.target.checked)}
-                                      className="w-3 h-3 text-red-600 border-gray-300 rounded mr-2"
-                                    />
-                                    Required
-                                  </label>
-                                )}
+                  {showCustomFields && (
+                    <div className="border-t border-gray-200 p-3 space-y-2">
+                      {customFields.map(field => (
+                        <div key={field.id} className="group border border-gray-200 rounded-lg p-3 hover:border-gray-300 transition-all">
+                          <div className="flex items-start justify-between mb-2">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 mb-1">
+                                <h4 className="font-medium text-gray-900 truncate">{field.label || field.name}</h4>
+                                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-700 shrink-0">
+                                  {field.type}
+                                </span>
                               </div>
-                            ))}
+                              {field.description && (
+                                <p className="text-xs text-gray-500 mb-2 line-clamp-2">{field.description}</p>
+                              )}
+                              {field.arrayOptions && (
+                                <div className="flex flex-wrap gap-1 mb-2">
+                                  {field.arrayOptions.slice(0, 3).map((option, idx) => (
+                                    <span key={idx} className="inline-flex items-center px-1.5 py-0.5 rounded text-xs bg-blue-50 text-blue-700">
+                                      {option}
+                                    </span>
+                                  ))}
+                                  {field.arrayOptions.length > 3 && (
+                                    <span className="text-xs text-gray-400">+{field.arrayOptions.length - 3}</span>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                          
+                          {/* Compact bucket assignments */}
+                          <div className="flex items-center justify-between pt-2 border-t border-gray-100">
+                            <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Buckets</span>
+                            <div className="flex gap-2">
+                              {Object.entries(bucketConfig).map(([bucket, config]) => {
+                                const isAssigned = bucketFields[bucket]?.some(f => f.id === field.id);
+                                const isRequired = bucketFields[bucket]?.find(f => f.id === field.id)?.required;
+                                const isPredefined = predefinedFields.includes(field.name);
+                                
+                                return (
+                                  <div key={bucket} className="flex flex-col items-center gap-1">
+                                    <div className="relative">
+                                      <button
+                                        onClick={() => toggleFieldForBucket(field.id, bucket)}
+                                        disabled={isPredefined && isAssigned}
+                                        className={`relative flex items-center justify-center w-7 h-7 rounded text-xs font-medium transition-all ${
+                                          isAssigned 
+                                            ? `bg-gray-900 text-white shadow-sm ${isPredefined ? 'cursor-not-allowed opacity-75' : ''}` 
+                                            : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                                        }`}
+                                        title={`${config.name}${isAssigned ? (isRequired ? ' (Required)' : ' (Optional)') : ''}${isPredefined && isAssigned ? ' - Predefined field' : ''}`}
+                                      >
+                                        <config.icon className="w-3.5 h-3.5" />
+                                        {isAssigned && isRequired && (
+                                          <div className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-orange-500 rounded-full border border-white"></div>
+                                        )}
+                                        {isPredefined && isAssigned && (
+                                          <div className="absolute -bottom-0.5 -left-0.5 w-2 h-2 bg-blue-500 rounded-full border border-white"></div>
+                                        )}
+                                      </button>
+                                      {isAssigned && (
+                                        <button
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            toggleFieldRequired(field.id, bucket, !isRequired);
+                                          }}
+                                          className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full border border-white text-xs flex items-center justify-center transition-colors font-bold ${
+                                            isRequired ? 'bg-orange-500 text-white' : 'bg-blue-500 text-white'
+                                          }`}
+                                          title={isRequired ? 'Required' : 'Optional'}
+                                        >
+                                          {isRequired ? '!' : '✓'}
+                                        </button>
+                                      )}
+                                    </div>
+                                    <span className="text-xs text-gray-500 font-medium">{config.name.charAt(0)}</span>
+                                  </div>
+                                );
+                              })}
+                            </div>
                           </div>
                         </div>
                       ))}
@@ -750,7 +778,7 @@ function App() {
                   {bucketFields[panelBucket]?.map(field => (
                     <div key={field.id}>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
-                        {field.name}
+                        {field.label || field.name}
                         {field.required && <span className="text-red-500 ml-1">*</span>}
                         {formErrors[field.name] && (
                           <span className="text-red-500 text-xs ml-2">This field is required</span>
