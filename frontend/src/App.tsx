@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Search, Plus, Settings, X, Target, Briefcase, BookOpen, Archive, CheckSquare, CheckCircle, Link, ChevronDown, ChevronRight, Edit } from 'lucide-react'
+import { Search, Plus, Settings, X, Target, Briefcase, BookOpen, Archive, CheckSquare, CheckCircle, Link, ChevronDown, ChevronRight, Edit, Trash2 } from 'lucide-react'
 import './App.css'
 
 interface Item {
@@ -64,11 +64,11 @@ const bucketConfig = {
 }
 
 const statuses = {
-  PROJECT: ['Planning', 'In Progress', 'On Hold', 'Completed'],
-  AREA: ['Active', 'Needs Attention', 'Maintaining'],
-  RESOURCE: ['Available', 'In Use', 'Outdated'],
-  ARCHIVE: ['Archived'],
-  ACTION: ['Next', 'Waiting', 'Someday', 'Done']
+  PROJECT: ['Next Up', 'Doing', 'In Review', 'On Hold', 'Wont Do', 'Completed'],
+  AREA: ['Next Up', 'Doing', 'In Review', 'On Hold', 'Wont Do', 'Completed'],
+  RESOURCE: ['Next Up', 'Doing', 'In Review', 'On Hold', 'Wont Do', 'Completed'],
+  ARCHIVE: ['Next Up', 'Doing', 'In Review', 'On Hold', 'Wont Do', 'Completed'],
+  ACTION: ['Next Up', 'Doing', 'In Review', 'On Hold', 'Wont Do', 'Completed']
 }
 
 function App() {
@@ -76,6 +76,8 @@ function App() {
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedBucket, setSelectedBucket] = useState<string>('PROJECT')
   const [bucketFields, setBucketFields] = useState<Record<string, CustomField[]>>({})
+  const [apiStatuses, setApiStatuses] = useState<Record<string, string[]>>({})
+  const [formData, setFormData] = useState<{status: string}>({status: "Next Up"})
   const [showPanel, setShowPanel] = useState(false)
   const [panelMode, setPanelMode] = useState<'add' | 'edit' | 'fields'>('add')
   const [panelBucket, setPanelBucket] = useState<string>('PROJECT')
@@ -93,6 +95,9 @@ function App() {
   const [selectedRelationships, setSelectedRelationships] = useState<string[]>([])
   const [relationshipType, setRelationshipType] = useState('contains')
   const [itemRelationships, setItemRelationships] = useState<Record<string, any[]>>({})
+  const [currentView, setCurrentView] = useState<'list' | 'priority' | 'status' | 'date' | 'timeline' | 'kanban'>('list')
+  const [showCreateDropdown, setShowCreateDropdown] = useState(false)
+  const [hiddenColumns, setHiddenColumns] = useState<Set<string>>(new Set())
   const [newField, setNewField] = useState({
     name: '',
     label: '',
@@ -108,7 +113,29 @@ function App() {
     loadItems()
     loadBucketFields()
     loadCustomFields()
+    loadStatuses()
   }, [])
+
+  useEffect(() => {
+    // Close dropdown when clicking outside
+    const handleClickOutside = (event: MouseEvent) => {
+      if (showCreateDropdown && !(event.target as Element).closest('.relative')) {
+        setShowCreateDropdown(false)
+      }
+    }
+    
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [showCreateDropdown])
+
+  // Update form data when editing item changes
+  useEffect(() => {
+    if (currentEditItem) {
+      setFormData({status: currentEditItem.status || "Next Up"})
+    } else {
+      setFormData({status: "Next Up"})
+    }
+  }, [currentEditItem])
 
   const loadItems = async () => {
     try {
@@ -143,6 +170,23 @@ function App() {
       setBucketFields(bucketFieldsData)
     } catch (error) {
       console.error('Failed to load bucket fields:', error)
+    }
+  }
+
+  const loadStatuses = async () => {
+    try {
+      const response = await fetch('/api/statuses')
+      const data = await response.json()
+      const statusesByBucket: Record<string, string[]> = {}
+      data.forEach((status: any) => {
+        if (!statusesByBucket[status.bucket]) {
+          statusesByBucket[status.bucket] = []
+        }
+        statusesByBucket[status.bucket].push(status.name)
+      })
+      setApiStatuses(statusesByBucket)
+    } catch (error) {
+      console.error('Failed to load statuses:', error)
     }
   }
 
@@ -278,7 +322,9 @@ function App() {
     const errors: Record<string, boolean> = {}
     let hasErrors = false
     
-    bucketFields[panelBucket]?.forEach(field => {
+    bucketFields[panelBucket]?.filter(field => 
+      !['title', 'description', 'status'].includes(field.name.toLowerCase())
+    ).forEach(field => {
       if (field.required) {
         const value = formData.get(`custom_${field.name}`)
         if (!value || value.toString().trim() === '') {
@@ -350,6 +396,264 @@ function App() {
     }
   }
 
+  const renderItemsByView = (items: Item[]) => {
+    switch (currentView) {
+      case 'list':
+        return renderListView(items)
+      case 'priority':
+        return renderPriorityView(items)
+      case 'status':
+        return renderStatusView(items)
+      case 'date':
+        return renderDateView(items)
+      case 'timeline':
+        return renderTimelineView(items)
+      case 'kanban':
+        return renderKanbanView(items)
+      default:
+        return renderListView(items)
+    }
+  }
+
+  const renderListView = (items: Item[]) => (
+    <div className="space-y-2">
+      {items.map(item => (
+        <div
+          key={item.id}
+          className="group flex items-center p-3 hover:bg-gray-50 rounded-lg transition-colors cursor-pointer"
+          onClick={() => openEditPanel(item)}
+        >
+          <div className="flex-1">
+            <div className="text-gray-900 font-medium">
+              {item.title}
+            </div>
+            
+            {item.description && (
+              <p className="text-sm text-gray-600 mt-1">{item.description}</p>
+            )}
+            
+            <div className="flex items-center gap-2 mt-2">
+              {item.status && (
+                <span className="inline-flex items-center px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded-full">
+                  {item.status === 'Completed' && <CheckCircle className="w-3 h-3 mr-1" />}
+                  {item.status}
+                </span>
+              )}
+            </div>
+            
+            {/* Relationships Display */}
+            {itemRelationships[item.id] && itemRelationships[item.id].length > 0 && (
+              <div className="mt-2">
+                <div className="flex flex-wrap gap-1">
+                  {itemRelationships[item.id].slice(0, 3).map((rel, idx) => (
+                    <span key={idx} className="inline-flex items-center px-1.5 py-0.5 bg-blue-50 text-blue-700 text-xs rounded">
+                      {relationshipTypes[rel.relationship] || rel.relationship}: {rel.childTitle || rel.parentTitle}
+                    </span>
+                  ))}
+                  {itemRelationships[item.id].length > 3 && (
+                    <span className="text-xs text-gray-400">+{itemRelationships[item.id].length - 3} more</span>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+          
+          <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
+            <button 
+              onClick={(e) => {
+                e.stopPropagation()
+                deleteItem(item.id)
+              }}
+              className="p-1 text-gray-400 hover:text-red-600 rounded"
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+
+  const renderPriorityView = (items: Item[]) => {
+    const priorityGroups = {
+      high: items.filter(item => item.extraFields?.priority === 'high'),
+      medium: items.filter(item => item.extraFields?.priority === 'medium'),
+      low: items.filter(item => item.extraFields?.priority === 'low'),
+      none: items.filter(item => !item.extraFields?.priority)
+    }
+
+    return (
+      <div className="space-y-6">
+        {Object.entries(priorityGroups).map(([priority, groupItems]) => (
+          <div key={priority}>
+            <h3 className={`text-sm font-medium mb-3 ${
+              priority === 'high' ? 'text-red-600' : 
+              priority === 'medium' ? 'text-yellow-600' : 
+              priority === 'low' ? 'text-green-600' : 'text-gray-600'
+            }`}>
+              {priority.charAt(0).toUpperCase() + priority.slice(1)} Priority ({groupItems.length})
+            </h3>
+            {renderListView(groupItems)}
+          </div>
+        ))}
+      </div>
+    )
+  }
+
+  const renderStatusView = (items: Item[]) => {
+    const statusGroups = items.reduce((groups, item) => {
+      const status = item.status || 'No Status'
+      if (!groups[status]) groups[status] = []
+      groups[status].push(item)
+      return groups
+    }, {} as Record<string, Item[]>)
+
+    return (
+      <div className="space-y-6">
+        {Object.entries(statusGroups).map(([status, groupItems]) => (
+          <div key={status}>
+            <h3 className="text-sm font-medium text-gray-700 mb-3">
+              {status} ({groupItems.length})
+            </h3>
+            {renderListView(groupItems)}
+          </div>
+        ))}
+      </div>
+    )
+  }
+
+  const renderDateView = (items: Item[]) => {
+    const sortedItems = [...items].sort((a, b) => {
+      const dateA = a.extraFields?.deadline || a.createdAt || ''
+      const dateB = b.extraFields?.deadline || b.createdAt || ''
+      return new Date(dateB).getTime() - new Date(dateA).getTime()
+    })
+
+    return renderListView(sortedItems)
+  }
+
+  const renderTimelineView = (items: Item[]) => (
+    <div className="space-y-4">
+      {items.map(item => (
+        <div key={item.id} className="flex items-start gap-4">
+          <div className="w-2 h-2 bg-blue-500 rounded-full mt-2 flex-shrink-0"></div>
+          <div className="flex-1 pb-4 border-b border-gray-100 last:border-b-0">
+            <div className="flex items-center justify-between">
+              <h4 className="font-medium text-gray-900">{item.title}</h4>
+              <span className="text-xs text-gray-500">
+                {item.extraFields?.deadline || new Date(item.createdAt).toLocaleDateString()}
+              </span>
+            </div>
+            {item.description && (
+              <p className="text-sm text-gray-600 mt-1">{item.description}</p>
+            )}
+            {item.status && (
+              <span className="inline-block mt-2 px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded-full">
+                {item.status}
+              </span>
+            )}
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+
+  const renderKanbanView = (items: Item[]) => {
+    // Get statuses for current bucket from API
+    const currentBucketStatuses = apiStatuses[selectedBucket] || []
+    
+    // Create columns for each status, plus items without status
+    const statusColumns: Record<string, Item[]> = {}
+    
+    // Initialize columns for all predefined statuses in current bucket
+    currentBucketStatuses.forEach(status => {
+      statusColumns[status] = []
+    })
+    
+    // Group items by status and create columns for any additional statuses found
+    items.forEach(item => {
+      let status = item.status || 'No Status'
+      
+      // Normalize status - trim whitespace and check for case-insensitive match
+      if (status !== 'No Status') {
+        status = status.trim()
+        // Check if there's a case-insensitive match with expected statuses
+        const matchedStatus = currentBucketStatuses.find(s => 
+          s.toLowerCase() === status.toLowerCase()
+        )
+        if (matchedStatus) {
+          status = matchedStatus // Use the canonical status name
+        }
+      }
+      
+      if (!statusColumns[status]) {
+        statusColumns[status] = []
+      }
+      statusColumns[status].push(item)
+    })
+
+    return (
+      <div className="flex gap-6 overflow-x-auto pb-4">
+        {Object.entries(statusColumns).map(([status, columnItems]) => {
+          const isHidden = hiddenColumns.has(status)
+          
+          return (
+            <div key={status} className="flex-shrink-0 w-80">
+              <div className="bg-gray-50 rounded-lg p-4">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="font-medium text-gray-900">
+                    {status} ({columnItems.length})
+                  </h3>
+                  <button
+                    onClick={() => {
+                      const newHidden = new Set(hiddenColumns)
+                      if (isHidden) {
+                        newHidden.delete(status)
+                      } else {
+                        newHidden.add(status)
+                      }
+                      setHiddenColumns(newHidden)
+                    }}
+                    className="p-1 text-gray-400 hover:text-gray-600 rounded"
+                    title={isHidden ? 'Show column' : 'Hide column'}
+                  >
+                    {isHidden ? <ChevronRight className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                  </button>
+                </div>
+                
+                {!isHidden && (
+                  <div className="space-y-3">
+                    {columnItems.map(item => (
+                      <div
+                        key={item.id}
+                        className="bg-white p-3 rounded-lg shadow-sm border cursor-pointer hover:shadow-md transition-shadow"
+                        onClick={() => openEditPanel(item)}
+                      >
+                        <h4 className="font-medium text-gray-900 mb-1">{item.title}</h4>
+                        {item.description && (
+                          <p className="text-sm text-gray-600 mb-2">{item.description}</p>
+                        )}
+                        {item.extraFields?.priority && (
+                          <span className={`inline-block px-2 py-1 text-xs rounded-full ${
+                            item.extraFields.priority === 'high' ? 'bg-red-100 text-red-700' :
+                            item.extraFields.priority === 'medium' ? 'bg-yellow-100 text-yellow-700' :
+                            'bg-green-100 text-green-700'
+                          }`}>
+                            {item.extraFields.priority}
+                          </span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    )
+  }
+
   const loadItemRelationships = async (itemId: string) => {
     try {
       const response = await fetch(`/api/relationships/${itemId}`)
@@ -419,7 +723,7 @@ function App() {
   const updateItem = async (itemId: string, title: string, description: string, status: string, extraFields: Record<string, any>) => {
     try {
       const response = await fetch(`/api/items/${itemId}`, {
-        method: 'PATCH',
+        method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           title, 
@@ -462,6 +766,7 @@ function App() {
                   className="pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-md focus:border-blue-500 focus:outline-none w-64"
                 />
               </div>
+              
               <button 
                 onClick={openFieldsPanel}
                 className="flex items-center px-3 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-md"
@@ -498,6 +803,32 @@ function App() {
             })}
           </div>
 
+          {/* View Selector */}
+          <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1 mb-4 w-fit">
+            {[
+              { key: 'list', label: 'List', icon: '☰' },
+              { key: 'priority', label: 'Priority', icon: '⚡' },
+              { key: 'status', label: 'Status', icon: '📊' },
+              { key: 'date', label: 'Date', icon: '📅' },
+              { key: 'timeline', label: 'Timeline', icon: '📈' },
+              { key: 'kanban', label: 'Kanban', icon: '📋' }
+            ].map(view => (
+              <button
+                key={view.key}
+                onClick={() => setCurrentView(view.key as any)}
+                className={`px-2 py-1 text-xs rounded-md transition-colors ${
+                  currentView === view.key 
+                    ? 'bg-white text-gray-900 shadow-sm' 
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+                title={view.label}
+              >
+                <span className="mr-1">{view.icon}</span>
+                {view.label}
+              </button>
+            ))}
+          </div>
+
           <div className="flex items-center justify-between">
             <div>
               <p className="text-gray-600">
@@ -505,13 +836,44 @@ function App() {
               </p>
             </div>
             
-            <button
-              onClick={() => openAddPanel(selectedBucket)}
-              className="inline-flex items-center px-4 py-2 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              New {bucketConfig[selectedBucket as keyof typeof bucketConfig].name.slice(0, -1)}
-            </button>
+            <div className="relative">
+              <button
+                onClick={() => setShowCreateDropdown(!showCreateDropdown)}
+                className="inline-flex items-center px-4 py-2 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Create New
+                <ChevronDown className="w-4 h-4 ml-2" />
+              </button>
+              
+              {showCreateDropdown && (
+                <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border z-10">
+                  {Object.entries(bucketConfig).map(([bucket, config]) => {
+                    const Icon = config.icon
+                    return (
+                      <button
+                        key={bucket}
+                        onClick={() => {
+                          openAddPanel(bucket)
+                          setShowCreateDropdown(false)
+                        }}
+                        className="w-full flex items-center px-4 py-3 text-left hover:bg-gray-50 first:rounded-t-lg last:rounded-b-lg"
+                      >
+                        <Icon className="w-4 h-4 mr-3" style={{ color: config.color }} />
+                        <div>
+                          <div className="font-medium text-gray-900">
+                            New {config.name.slice(0, -1)}
+                          </div>
+                          <div className="text-xs text-gray-500">
+                            {config.description}
+                          </div>
+                        </div>
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
@@ -533,61 +895,7 @@ function App() {
               </p>
             </div>
           ) : (
-            <div className="space-y-2">
-              {selectedBucketItems.map(item => (
-                <div
-                  key={item.id}
-                  className="group flex items-center p-3 hover:bg-gray-50 rounded-lg transition-colors cursor-pointer"
-                  onClick={() => openEditPanel(item)}
-                >
-                  <div className="flex-1">
-                    <div className="text-gray-900 font-medium">
-                      {item.title}
-                    </div>
-                    
-                    {item.description && (
-                      <p className="text-sm text-gray-600 mt-1">{item.description}</p>
-                    )}
-                    
-                    <div className="flex items-center gap-2 mt-2">
-                      {item.status && (
-                        <span className="inline-flex items-center px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded-full">
-                          {item.status === 'Completed' && <CheckCircle className="w-3 h-3 mr-1" />}
-                          {item.status}
-                        </span>
-                      )}
-                    </div>
-                    
-                    {/* Relationships Display */}
-                    {itemRelationships[item.id] && itemRelationships[item.id].length > 0 && (
-                      <div className="mt-2">
-                        <div className="flex flex-wrap gap-1">
-                          {itemRelationships[item.id].slice(0, 3).map((rel, idx) => (
-                            <span key={idx} className="inline-flex items-center px-1.5 py-0.5 bg-blue-50 text-blue-700 text-xs rounded">
-                              {relationshipTypes[rel.relationship] || rel.relationship}: {rel.childTitle || rel.parentTitle}
-                            </span>
-                          ))}
-                          {itemRelationships[item.id].length > 3 && (
-                            <span className="text-xs text-gray-400">+{itemRelationships[item.id].length - 3} more</span>
-                          )}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                  
-                  <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
-                    <button 
-                      onClick={(e) => {
-                        e.stopPropagation()
-                      }}
-                      className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-200 rounded"
-                    >
-                      <Link className="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
+            renderItemsByView(selectedBucketItems)
           )}
         </div>
       </div>
@@ -913,7 +1221,9 @@ function App() {
                 
                 const extraFields: Record<string, any> = {}
                 
-                bucketFields[panelBucket]?.forEach(field => {
+                bucketFields[panelBucket]?.filter(field => 
+                  !['title', 'description', 'status'].includes(field.name.toLowerCase())
+                ).forEach(field => {
                   const value = formData.get(`custom_${field.name}`)
                   
                   if (value !== null) {
@@ -975,17 +1285,21 @@ function App() {
                     </label>
                     <select
                       name="status"
-                      defaultValue={currentEditItem?.status || statuses[panelBucket as keyof typeof statuses][0]}
+                      value={formData.status}
+                      onChange={(e) => setFormData({...formData, status: e.target.value})}
                       className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none"
                     >
-                      {statuses[panelBucket as keyof typeof statuses].map(status => (
+                      {(apiStatuses[panelBucket] || []).map(status => (
                         <option key={status} value={status}>{status}</option>
                       ))}
                     </select>
                   </div>
 
                   {/* Custom Fields */}
-                  {bucketFields[panelBucket]?.map(field => (
+                  {bucketFields[panelBucket]?.filter(field => 
+                    // Exclude fields that have the same name as built-in fields
+                    !['title', 'description', 'status'].includes(field.name.toLowerCase())
+                  ).map(field => (
                     <div key={field.id}>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
                         {field.label || field.name}

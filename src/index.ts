@@ -8,6 +8,9 @@ const service = new PARAService();
 const PORT = process.env.PORT || 3000;
 
 const server = createServer(async (req, res) => {
+  console.log(`DEBUGGING: ${req.method} ${req.url}`);
+  console.log('This should definitely show up in logs');
+  
   const url = new URL(req.url!, `http://${req.headers.host}`);
   const { pathname } = url;
   const method = req.method;
@@ -39,6 +42,19 @@ const server = createServer(async (req, res) => {
   }
 
   // API Routes
+  if (method === 'GET' && pathname === '/api/statuses') {
+    try {
+      const statuses = await service.getAllStatuses();
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(statuses));
+    } catch (error) {
+      console.error('Error fetching statuses:', error);
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Failed to fetch statuses' }));
+    }
+    return;
+  }
+
   if (method === 'GET' && pathname === '/api/items') {
     try {
       const items = await service.getAllItems();
@@ -55,7 +71,14 @@ const server = createServer(async (req, res) => {
   if (method === 'POST' && pathname === '/api/items') {
     try {
       const itemData = JSON.parse(body);
-      const item = await service.createItem(itemData);
+      // Map 'status' to 'statusName' for the service
+      const createInput = {
+        ...itemData,
+        statusName: itemData.status
+      };
+      delete createInput.status; // Remove the original status field
+      
+      const item = await service.createItem(createInput);
       res.writeHead(201, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify(item));
     } catch (error) {
@@ -183,6 +206,13 @@ const server = createServer(async (req, res) => {
     return;
   }
 
+  // Test endpoint
+  if (method === 'GET' && pathname === '/api/test') {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ message: 'API is working' }));
+    return;
+  }
+
   // Relationships
   if (method === 'POST' && pathname === '/api/relationships') {
     try {
@@ -216,8 +246,11 @@ const server = createServer(async (req, res) => {
 
   if (method === 'GET' && pathname.startsWith('/api/relationships/')) {
     try {
+      console.log('Getting relationships for pathname:', pathname);
       const itemId = pathname.split('/')[3];
+      console.log('Extracted itemId:', itemId);
       const relationships = await service.getItemRelationships(itemId);
+      console.log('Found relationships:', relationships);
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify(relationships));
     } catch (error) {

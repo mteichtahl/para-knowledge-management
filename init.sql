@@ -80,61 +80,74 @@ CREATE TABLE notes (
 -- Insert default statuses
 INSERT INTO statuses (bucket, name, "order") VALUES
 -- Projects
-('PROJECT', 'Planning', 1),
-('PROJECT', 'In Progress', 2),
-('PROJECT', 'On Hold', 3),
-('PROJECT', 'Completed', 4),
+('PROJECT', 'Next Up', 1),
+('PROJECT', 'Doing', 2),
+('PROJECT', 'In Review', 3),
+('PROJECT', 'On Hold', 4),
+('PROJECT', 'Wont Do', 5),
+('PROJECT', 'Completed', 6),
 -- Areas
-('AREA', 'Active', 1),
-('AREA', 'Needs Attention', 2),
-('AREA', 'Maintaining', 3),
+('AREA', 'Next Up', 1),
+('AREA', 'Doing', 2),
+('AREA', 'In Review', 3),
+('AREA', 'On Hold', 4),
+('AREA', 'Wont Do', 5),
+('AREA', 'Completed', 6),
 -- Resources
-('RESOURCE', 'Available', 1),
-('RESOURCE', 'In Use', 2),
-('RESOURCE', 'Outdated', 3),
+('RESOURCE', 'Next Up', 1),
+('RESOURCE', 'Doing', 2),
+('RESOURCE', 'In Review', 3),
+('RESOURCE', 'On Hold', 4),
+('RESOURCE', 'Wont Do', 5),
+('RESOURCE', 'Completed', 6),
 -- Archive
-('ARCHIVE', 'Archived', 1),
+('ARCHIVE', 'Next Up', 1),
+('ARCHIVE', 'Doing', 2),
+('ARCHIVE', 'In Review', 3),
+('ARCHIVE', 'On Hold', 4),
+('ARCHIVE', 'Wont Do', 5),
+('ARCHIVE', 'Completed', 6),
 -- Actions
-('ACTION', 'Next', 1),
-('ACTION', 'Waiting', 2),
-('ACTION', 'Someday', 3),
-('ACTION', 'Done', 4);
+('ACTION', 'Next Up', 1),
+('ACTION', 'Doing', 2),
+('ACTION', 'In Review', 3),
+('ACTION', 'On Hold', 4),
+('ACTION', 'Wont Do', 5),
+('ACTION', 'Completed', 6);
 
 -- Insert priority custom field
-INSERT INTO custom_fields (name, label, type, description, default_value, array_options, multi_select) VALUES
-('priority', 'Priority', 'array', 'Priority level', '["Medium"]', ARRAY['High', 'Medium', 'Low'], false);
-
--- Insert status custom field
-INSERT INTO custom_fields (name, label, type, description, default_value, array_options, multi_select) VALUES
-('status', 'Status', 'array', 'Status', '["To Do"]', ARRAY['To Do', 'On Hold', 'In Progress', 'In Review', 'Not Doing', 'Done'], false);
+INSERT INTO custom_fields (name, type, description, default_value, array_options, multi_select) VALUES
+('priority', 'array', 'Priority level', '["Medium"]', ARRAY['High', 'Medium', 'Low'], false);
 
 -- Insert urgency custom field
-INSERT INTO custom_fields (name, label, type, description, default_value, array_options, multi_select) VALUES
-('urgency', 'Urgency', 'array', 'Urgency level', '["Medium"]', ARRAY['Extreme', 'High', 'Medium', 'Low'], false);
+INSERT INTO custom_fields (name, type, description, default_value, array_options, multi_select) VALUES
+('urgency', 'array', 'Urgency level', '["Medium"]', ARRAY['Extreme', 'High', 'Medium', 'Low'], false);
 
 -- Insert start date custom field
-INSERT INTO custom_fields (name, label, type, description, default_value, array_options, multi_select) VALUES
-('startDate', 'Start Date', 'date', 'Start date', null, null, false);
+INSERT INTO custom_fields (name, type, description, default_value, array_options, multi_select) VALUES
+('startDate', 'date', 'Start date', null, null, false);
 
 -- Insert end date custom field
-INSERT INTO custom_fields (name, label, type, description, default_value, array_options, multi_select) VALUES
-('endDate', 'End Date', 'date', 'End date', null, null, false);
+INSERT INTO custom_fields (name, type, description, default_value, array_options, multi_select) VALUES
+('endDate', 'date', 'End date', null, null, false);
 
 -- Insert owner custom field
-INSERT INTO custom_fields (name, label, type, description, default_value, array_options, multi_select) VALUES
-('owner', 'Owner', 'text', 'Owner', null, null, false);
+INSERT INTO custom_fields (name, type, description, default_value, array_options, multi_select) VALUES
+('owner', 'text', 'Owner', null, null, false);
+
+-- Insert test custom field
+INSERT INTO custom_fields (name, type, description, default_value, array_options, multi_select) VALUES
+('test', 'text', 'Test field', null, null, false);
+
+-- Insert email custom field
+INSERT INTO custom_fields (name, type, description, default_value, array_options, multi_select) VALUES
+('email', 'text', 'Email address', null, null, false);
 
 -- Assign priority field as required to Projects, Areas, and Actions only
 INSERT INTO bucket_fields (bucket, field_id, required) VALUES
 ('PROJECT', (SELECT id FROM custom_fields WHERE name = 'priority'), true),
 ('AREA', (SELECT id FROM custom_fields WHERE name = 'priority'), true),
 ('ACTION', (SELECT id FROM custom_fields WHERE name = 'priority'), true);
-
--- Assign status field as required to Projects, Areas, and Actions only
-INSERT INTO bucket_fields (bucket, field_id, required) VALUES
-('PROJECT', (SELECT id FROM custom_fields WHERE name = 'status'), true),
-('AREA', (SELECT id FROM custom_fields WHERE name = 'status'), true),
-('ACTION', (SELECT id FROM custom_fields WHERE name = 'status'), true);
 
 -- Assign urgency field as required to Projects, Areas, and Actions only
 INSERT INTO bucket_fields (bucket, field_id, required) VALUES
@@ -161,3 +174,11 @@ INSERT INTO bucket_fields (bucket, field_id, required) VALUES
 ('RESOURCE', (SELECT id FROM custom_fields WHERE name = 'owner'), false),
 ('ARCHIVE', (SELECT id FROM custom_fields WHERE name = 'owner'), false),
 ('ACTION', (SELECT id FROM custom_fields WHERE name = 'owner'), false);
+
+-- Assign test field as optional to Projects only
+INSERT INTO bucket_fields (bucket, field_id, required) VALUES
+('PROJECT', (SELECT id FROM custom_fields WHERE name = 'test'), false);
+
+-- Assign email field as optional to Projects only
+INSERT INTO bucket_fields (bucket, field_id, required) VALUES
+('PROJECT', (SELECT id FROM custom_fields WHERE name = 'email'), false);
