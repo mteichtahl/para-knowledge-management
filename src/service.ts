@@ -123,4 +123,42 @@ export class PARAService {
         )
       );
   }
+
+  // Relationship methods
+  async addRelationship(input: CreateRelationInput): Promise<ItemRelation> {
+    const result = await this.db.insert(itemRelations).values({
+      parentId: input.parentId,
+      childId: input.childId,
+      relationship: input.relationship
+    }).returning();
+    
+    return result[0];
+  }
+
+  async removeRelationship(parentId: string, childId: string): Promise<void> {
+    await this.db.delete(itemRelations)
+      .where(and(
+        eq(itemRelations.parentId, parentId),
+        eq(itemRelations.childId, childId)
+      ));
+  }
+
+  async getItemRelationships(itemId: string): Promise<any[]> {
+    return this.db.select({
+      id: itemRelations.id,
+      parentId: itemRelations.parentId,
+      childId: itemRelations.childId,
+      relationship: itemRelations.relationship,
+      parentTitle: items.title,
+      parentBucket: items.bucket,
+      childTitle: items.title,
+      childBucket: items.bucket
+    })
+    .from(itemRelations)
+    .leftJoin(items, eq(itemRelations.parentId, items.id))
+    .where(or(
+      eq(itemRelations.parentId, itemId),
+      eq(itemRelations.childId, itemId)
+    ));
+  }
 }

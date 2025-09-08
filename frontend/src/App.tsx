@@ -20,6 +20,16 @@ interface CustomField {
   defaultValue?: any
 }
 
+// Relationship types based on PARA methodology
+const relationshipTypes = {
+  'contains': 'Contains',
+  'belongs-to': 'Belongs to', 
+  'references': 'References',
+  'depends-on': 'Depends on',
+  'supports': 'Supports',
+  'related-to': 'Related to'
+}
+
 const bucketConfig = {
   PROJECT: { 
     name: 'Projects', 
@@ -79,6 +89,10 @@ function App() {
   const [customFieldSearch, setCustomFieldSearch] = useState('')
   const [editingField, setEditingField] = useState<string | null>(null)
   const [formErrors, setFormErrors] = useState<Record<string, boolean>>({})
+  const [availableItems, setAvailableItems] = useState<Item[]>([])
+  const [selectedRelationships, setSelectedRelationships] = useState<string[]>([])
+  const [relationshipType, setRelationshipType] = useState('contains')
+  const [itemRelationships, setItemRelationships] = useState<Record<string, any[]>>({})
   const [newField, setNewField] = useState({
     name: '',
     label: '',
@@ -101,6 +115,10 @@ function App() {
       const response = await fetch('/api/items')
       const data = await response.json()
       setItems(data)
+      // Load relationships for each item
+      data.forEach((item: Item) => {
+        loadItemRelationships(item.id)
+      })
     } catch (error) {
       console.error('Failed to load items:', error)
     }
@@ -149,14 +167,18 @@ function App() {
     setPanelMode('add')
     setPanelBucket(bucket)
     setCurrentEditItem(null)
+    setSelectedRelationships([])
     setShowPanel(true)
+    loadAvailableItems()
   }
 
   const openEditPanel = (item: Item) => {
     setPanelMode('edit')
     setPanelBucket(item.bucket)
     setCurrentEditItem(item)
+    setSelectedRelationships([])
     setShowPanel(true)
+    loadAvailableItems()
   }
 
   const openFieldsPanel = () => {
@@ -188,6 +210,18 @@ function App() {
     } catch (error) {
       console.error('Failed to update custom field:', error)
       alert('Failed to update custom field')
+    }
+  }
+
+  const loadAvailableItems = async () => {
+    try {
+      const response = await fetch('/api/items')
+      if (response.ok) {
+        const data = await response.json()
+        setAvailableItems(data)
+      }
+    } catch (error) {
+      console.error('Failed to load available items:', error)
     }
   }
 
@@ -316,6 +350,45 @@ function App() {
     }
   }
 
+  const loadItemRelationships = async (itemId: string) => {
+    try {
+      const response = await fetch(`/api/relationships/${itemId}`)
+      if (response.ok) {
+        const relationships = await response.json()
+        setItemRelationships(prev => ({
+          ...prev,
+          [itemId]: relationships
+        }))
+      }
+    } catch (error) {
+      console.error('Failed to load relationships:', error)
+    }
+  }
+
+  const createRelationship = async (parentId: string, childId: string, relationship: string) => {
+    try {
+      const response = await fetch('/api/relationships', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          parentId,
+          childId,
+          relationship
+        })
+      })
+      
+      if (response.ok) {
+        console.log('Relationship created successfully')
+      } else {
+        console.error('Failed to create relationship')
+      }
+    } catch (error) {
+      console.error('Error creating relationship:', error)
+    }
+  }
+
   const createItem = async (bucket: string, title: string, description: string, status: string, extraFields: Record<string, any>) => {
     if (!title.trim()) return
 
@@ -333,11 +406,14 @@ function App() {
       })
 
       if (response.ok) {
+        const newItem = await response.json()
         loadItems()
+        return newItem
       }
     } catch (error) {
       console.error('Failed to create item:', error)
     }
+    return null
   }
 
   const updateItem = async (itemId: string, title: string, description: string, status: string, extraFields: Record<string, any>) => {
@@ -481,6 +557,22 @@ function App() {
                         </span>
                       )}
                     </div>
+                    
+                    {/* Relationships Display */}
+                    {itemRelationships[item.id] && itemRelationships[item.id].length > 0 && (
+                      <div className="mt-2">
+                        <div className="flex flex-wrap gap-1">
+                          {itemRelationships[item.id].slice(0, 3).map((rel, idx) => (
+                            <span key={idx} className="inline-flex items-center px-1.5 py-0.5 bg-blue-50 text-blue-700 text-xs rounded">
+                              {relationshipTypes[rel.relationship] || rel.relationship}: {rel.childTitle || rel.parentTitle}
+                            </span>
+                          ))}
+                          {itemRelationships[item.id].length > 3 && (
+                            <span className="text-xs text-gray-400">+{itemRelationships[item.id].length - 3} more</span>
+                          )}
+                        </div>
+                      </div>
+                    )}
                   </div>
                   
                   <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
@@ -806,7 +898,7 @@ function App() {
                 </div>
               </div>
             ) : (
-              <form onSubmit={(e) => {
+              <form onSubmit={async (e) => {
                 e.preventDefault()
                 const formData = new FormData(e.currentTarget)
                 
@@ -834,9 +926,17 @@ function App() {
                 })
 
                 if (panelMode === 'add') {
-                  createItem(panelBucket, title, description, status, extraFields)
+                  const newItem = await createItem(panelBucket, title, description, status, extraFields)
+                  // Create relationships
+                  for (const relatedItemId of selectedRelationships) {
+                    await createRelationship(newItem.id, relatedItemId, relationshipType)
+                  }
                 } else if (currentEditItem) {
-                  updateItem(currentEditItem.id, title, description, status, extraFields)
+                  await updateItem(currentEditItem.id, title, description, status, extraFields)
+                  // Update relationships - for now just create new ones
+                  for (const relatedItemId of selectedRelationships) {
+                    await createRelationship(currentEditItem.id, relatedItemId, relationshipType)
+                  }
                 }
                 setShowPanel(false)
                 setFormErrors({}) // Clear form errors when closing
@@ -964,6 +1064,45 @@ function App() {
                       )}
                     </div>
                   ))}
+
+                  {/* Relationships */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Related Items
+                    </label>
+                    
+                    <div className="space-y-3">
+                      <select
+                        value={relationshipType}
+                        onChange={(e) => setRelationshipType(e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      >
+                        {Object.entries(relationshipTypes).map(([key, label]) => (
+                          <option key={key} value={key}>{label}</option>
+                        ))}
+                      </select>
+                      
+                      <select
+                        multiple
+                        value={selectedRelationships}
+                        onChange={(e) => setSelectedRelationships(Array.from(e.target.selectedOptions, option => option.value))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        size={4}
+                      >
+                        {availableItems
+                          .filter(item => item.id !== currentEditItem?.id)
+                          .map(item => (
+                            <option key={item.id} value={item.id}>
+                              [{bucketConfig[item.bucket]?.name}] {item.title}
+                            </option>
+                          ))}
+                      </select>
+                    </div>
+                    
+                    <p className="text-xs text-gray-500 mt-1">
+                      Select relationship type, then hold Ctrl/Cmd to select multiple items
+                    </p>
+                  </div>
                 </div>
 
                 <div className="flex gap-3 pt-6 mt-6 border-t border-gray-200">

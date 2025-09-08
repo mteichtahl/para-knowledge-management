@@ -183,6 +183,51 @@ const server = createServer(async (req, res) => {
     return;
   }
 
+  // Relationships
+  if (method === 'POST' && pathname === '/api/relationships') {
+    try {
+      const relationshipData = JSON.parse(body);
+      const relationship = await service.addRelationship(relationshipData);
+      res.writeHead(201, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(relationship));
+    } catch (error) {
+      console.error('Error creating relationship:', error);
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Failed to create relationship' }));
+    }
+    return;
+  }
+
+  if (method === 'DELETE' && pathname.startsWith('/api/relationships/')) {
+    try {
+      const pathParts = pathname.split('/');
+      const parentId = pathParts[3];
+      const childId = pathParts[4];
+      await service.removeRelationship(parentId, childId);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: true }));
+    } catch (error) {
+      console.error('Error removing relationship:', error);
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Failed to remove relationship' }));
+    }
+    return;
+  }
+
+  if (method === 'GET' && pathname.startsWith('/api/relationships/')) {
+    try {
+      const itemId = pathname.split('/')[3];
+      const relationships = await service.getItemRelationships(itemId);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(relationships));
+    } catch (error) {
+      console.error('Error getting relationships:', error);
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Failed to get relationships' }));
+    }
+    return;
+  }
+
   // Serve static files
   if (method === 'GET') {
     try {
