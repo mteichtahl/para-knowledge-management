@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Search, Plus, Settings, X, Target, Briefcase, BookOpen, Archive, CheckSquare, CheckCircle, Link, ChevronDown, ChevronRight, Edit, Trash2 } from 'lucide-react'
 import './App.css'
 
@@ -77,7 +77,7 @@ function App() {
   const [selectedBucket, setSelectedBucket] = useState<string>('PROJECT')
   const [bucketFields, setBucketFields] = useState<Record<string, CustomField[]>>({})
   const [apiStatuses, setApiStatuses] = useState<Record<string, string[]>>({})
-  const [formData, setFormData] = useState<{status: string}>({status: "Next Up"})
+  const [formData, setFormData] = useState<{status: string, priority?: string, urgency?: string, title?: string, description?: string}>({status: "Next Up"})
   const [showPanel, setShowPanel] = useState(false)
   const [panelMode, setPanelMode] = useState<'add' | 'edit' | 'fields'>('add')
   const [panelBucket, setPanelBucket] = useState<string>('PROJECT')
@@ -94,8 +94,8 @@ function App() {
   const [availableItems, setAvailableItems] = useState<Item[]>([])
   const [selectedRelationships, setSelectedRelationships] = useState<string[]>([])
   const [relationshipType, setRelationshipType] = useState('contains')
-  const [itemRelationships, setItemRelationships] = useState<Record<string, any[]>>({})
-  const [currentView, setCurrentView] = useState<'list' | 'priority' | 'status' | 'date' | 'timeline' | 'kanban'>('list')
+  const [draggedItem, setDraggedItem] = useState<string | null>(null)
+  const [currentView, setCurrentView] = useState<'list' | 'priority' | 'status' | 'date' | 'timeline' | 'kanban'>('kanban')
   const [showCreateDropdown, setShowCreateDropdown] = useState(false)
   const [hiddenColumns, setHiddenColumns] = useState<Set<string>>(new Set())
   const [newField, setNewField] = useState({
@@ -131,7 +131,13 @@ function App() {
   // Update form data when editing item changes
   useEffect(() => {
     if (currentEditItem) {
-      setFormData({status: currentEditItem.status || "Next Up"})
+      setFormData({
+        status: currentEditItem.status || "Next Up",
+        priority: currentEditItem.extraFields?.priority || undefined,
+        urgency: currentEditItem.extraFields?.urgency || undefined,
+        title: currentEditItem.title || '',
+        description: currentEditItem.description || ''
+      })
     } else {
       setFormData({status: "Next Up"})
     }
@@ -228,6 +234,35 @@ function App() {
   const openFieldsPanel = () => {
     setPanelMode('fields')
     setShowPanel(true)
+  }
+
+  const closePanel = () => {
+    setShowPanel(false)
+    setCurrentEditItem(null)
+    setFormData({status: "Next Up"})
+    setFormErrors({})
+    setSelectedRelationships([])
+  }
+
+  const autoSave = async (field: string, value: any) => {
+    if (!currentEditItem) return
+    
+    try {
+      const extraFields = { ...currentEditItem.extraFields }
+      if (field === 'status') {
+        await updateItem(currentEditItem.id, currentEditItem.title, currentEditItem.description, value, extraFields)
+      } else if (field === 'title') {
+        await updateItem(currentEditItem.id, value, currentEditItem.description, currentEditItem.status, extraFields)
+      } else if (field === 'description') {
+        await updateItem(currentEditItem.id, currentEditItem.title, value, currentEditItem.status, extraFields)
+      } else {
+        // Update extra field
+        extraFields[field] = value
+        await updateItem(currentEditItem.id, currentEditItem.title, currentEditItem.description, currentEditItem.status, extraFields)
+      }
+    } catch (error) {
+      console.error('Auto-save failed:', error)
+    }
   }
 
   const updateCustomField = async (fieldId: string, fieldData: any) => {
@@ -476,26 +511,71 @@ function App() {
 
   const renderPriorityView = (items: Item[]) => {
     const priorityGroups = {
-      high: items.filter(item => item.extraFields?.priority === 'high'),
-      medium: items.filter(item => item.extraFields?.priority === 'medium'),
-      low: items.filter(item => item.extraFields?.priority === 'low'),
+      high: items.filter(item => item.extraFields?.priority?.toLowerCase() === 'high'),
+      medium: items.filter(item => item.extraFields?.priority?.toLowerCase() === 'medium'),
+      low: items.filter(item => item.extraFields?.priority?.toLowerCase() === 'low'),
       none: items.filter(item => !item.extraFields?.priority)
     }
 
+    const priorityOrder = ['high', 'medium', 'low', 'none']
+    const priorityLabels = { high: 'High Priority', medium: 'Medium Priority', low: 'Low Priority', none: 'No Priority' }
+    const priorityColors = { 
+      high: 'border-red-200 bg-red-50', 
+      medium: 'border-orange-200 bg-orange-50', 
+      low: 'border-blue-200 bg-blue-50', 
+      none: 'border-gray-200 bg-gray-50' 
+    }
+
     return (
-      <div className="space-y-6">
-        {Object.entries(priorityGroups).map(([priority, groupItems]) => (
-          <div key={priority}>
-            <h3 className={`text-sm font-medium mb-3 ${
-              priority === 'high' ? 'text-red-600' : 
-              priority === 'medium' ? 'text-yellow-600' : 
-              priority === 'low' ? 'text-green-600' : 'text-gray-600'
-            }`}>
-              {priority.charAt(0).toUpperCase() + priority.slice(1)} Priority ({groupItems.length})
-            </h3>
-            {renderListView(groupItems)}
-          </div>
-        ))}
+      <div className="flex gap-6 overflow-x-auto pb-4">
+        {priorityOrder.map(priority => {
+          const groupItems = priorityGroups[priority as keyof typeof priorityGroups]
+          return (
+            <div key={priority} className={`flex-shrink-0 w-80 border rounded-lg ${priorityColors[priority as keyof typeof priorityColors]}`}>
+              <div className="p-4 border-b border-current border-opacity-20">
+                <h3 className={`font-medium text-sm ${
+                  priority === 'high' ? 'text-red-700' : 
+                  priority === 'medium' ? 'text-orange-700' : 
+                  priority === 'low' ? 'text-blue-700' : 'text-gray-700'
+                }`}>
+                  {priorityLabels[priority as keyof typeof priorityLabels]} ({groupItems.length})
+                </h3>
+              </div>
+              <div className="p-4 space-y-3">
+                {groupItems.map(item => (
+                  <div
+                    key={item.id}
+                    onClick={() => openEditPanel(item)}
+                    className="bg-white p-3 rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-shadow cursor-pointer"
+                  >
+                    <div className="flex items-start justify-between mb-2">
+                      <h4 className="font-medium text-sm text-gray-900 line-clamp-2">{item.title}</h4>
+                      <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${bucketConfig[item.bucket as keyof typeof bucketConfig].color}`}>
+                        {React.createElement(bucketConfig[item.bucket as keyof typeof bucketConfig].icon)}
+                      </span>
+                    </div>
+                    {item.description && (
+                      <p className="text-xs text-gray-600 line-clamp-2 mb-2">{item.description}</p>
+                    )}
+                    <div className="flex items-center justify-between text-xs text-gray-500">
+                      <span className="px-2 py-1 bg-gray-100 rounded">{item.status}</span>
+                      {item.extraFields?.urgency && (
+                        <span className="px-2 py-1 bg-orange-100 text-orange-700 rounded">
+                          {item.extraFields.urgency}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+                {groupItems.length === 0 && (
+                  <div className="text-center py-8 text-gray-500 text-sm">
+                    No items with {priority === 'none' ? 'no' : priority} priority
+                  </div>
+                )}
+              </div>
+            </div>
+          )
+        })}
       </div>
     )
   }
@@ -557,6 +637,83 @@ function App() {
       ))}
     </div>
   )
+
+  const renderCrossBucketKanban = (items: Item[]) => {
+    return (
+      <div className="flex gap-6 overflow-x-auto pb-4">
+        {Object.entries(bucketConfig).map(([bucket, config]) => {
+          const Icon = config.icon
+          const bucketItems = items.filter(item => item.bucket === bucket)
+          
+          return (
+            <div key={bucket} className="flex-shrink-0 w-80">
+              <div className="bg-gray-50 rounded-lg p-4">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2">
+                    <Icon className={`w-5 h-5 ${config.color}`} />
+                    <h3 className="font-medium text-gray-900">
+                      {config.name} ({bucketItems.length})
+                    </h3>
+                  </div>
+                </div>
+                
+                <div 
+                  className="space-y-3 min-h-[200px]"
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={async (e) => {
+                    e.preventDefault()
+                    const itemId = e.dataTransfer.getData('text/plain')
+                    const draggedItem = items.find(item => item.id === itemId)
+                    if (draggedItem && draggedItem.bucket !== bucket) {
+                      try {
+                        await updateItem(draggedItem.id, draggedItem.title, draggedItem.description || '', draggedItem.status || '', draggedItem.extraFields || {}, bucket)
+                        await loadItems()
+                      } catch (error) {
+                        console.error('Failed to update item bucket:', error)
+                      }
+                    }
+                  }}
+                >
+                  {bucketItems.map(item => (
+                    <div
+                      key={item.id}
+                      draggable
+                      onDragStart={(e) => {
+                        e.dataTransfer.setData('text/plain', item.id)
+                        setDraggedItem(item.bucket)
+                      }}
+                      onDragEnd={() => setDraggedItem(null)}
+                      className="bg-white p-3 rounded-lg shadow-sm border cursor-pointer hover:shadow-md transition-shadow"
+                      onClick={() => openEditPanel(item)}
+                    >
+                      <h4 className="font-medium text-gray-900 mb-1">{item.title}</h4>
+                      {item.description && (
+                        <p className="text-sm text-gray-600 mb-2">{item.description}</p>
+                      )}
+                      {item.extraFields?.priority && (
+                        <span className={`inline-block px-2 py-1 text-xs rounded-full ${
+                          item.extraFields.priority === 'High' ? 'bg-red-100 text-red-700' :
+                          item.extraFields.priority === 'Medium' ? 'bg-orange-100 text-orange-700' :
+                          'bg-blue-100 text-blue-700'
+                        }`}>
+                          {item.extraFields.priority}
+                        </span>
+                      )}
+                    </div>
+                  ))}
+                  {bucketItems.length === 0 && (
+                    <div className="text-center py-8 text-gray-500 text-sm">
+                      No {config.name.toLowerCase()}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    )
+  }
 
   const renderKanbanView = (items: Item[]) => {
     // Get statuses for current bucket from API
@@ -622,10 +779,46 @@ function App() {
                 </div>
                 
                 {!isHidden && (
-                  <div className="space-y-3">
+                  <div 
+                    className={`space-y-3 min-h-[100px] transition-colors rounded-lg p-2 ${
+                      draggedItem && draggedItem !== status ? 'bg-blue-50 border-2 border-dashed border-blue-300' : ''
+                    }`}
+                    onDragOver={(e) => e.preventDefault()}
+                    onDragEnter={(e) => {
+                      e.preventDefault()
+                      if (draggedItem && draggedItem !== status) {
+                        e.currentTarget.classList.add('bg-blue-100')
+                      }
+                    }}
+                    onDragLeave={(e) => {
+                      e.preventDefault()
+                      e.currentTarget.classList.remove('bg-blue-100')
+                    }}
+                    onDrop={async (e) => {
+                      e.preventDefault()
+                      e.currentTarget.classList.remove('bg-blue-100')
+                      const itemId = e.dataTransfer.getData('text/plain')
+                      const draggedItem = items.find(item => item.id === itemId)
+                      if (draggedItem && draggedItem.status !== status) {
+                        try {
+                          await updateItem(draggedItem.id, draggedItem.title, draggedItem.description || '', status, draggedItem.extraFields || {})
+                          await loadItems()
+                        } catch (error) {
+                          console.error('Failed to update item status:', error)
+                        }
+                      }
+                      setDraggedItem(null)
+                    }}
+                  >
                     {columnItems.map(item => (
                       <div
                         key={item.id}
+                        draggable
+                        onDragStart={(e) => {
+                          e.dataTransfer.setData('text/plain', item.id)
+                          setDraggedItem(item.status || 'No Status')
+                        }}
+                        onDragEnd={() => setDraggedItem(null)}
                         className="bg-white p-3 rounded-lg shadow-sm border cursor-pointer hover:shadow-md transition-shadow"
                         onClick={() => openEditPanel(item)}
                       >
@@ -635,9 +828,9 @@ function App() {
                         )}
                         {item.extraFields?.priority && (
                           <span className={`inline-block px-2 py-1 text-xs rounded-full ${
-                            item.extraFields.priority === 'high' ? 'bg-red-100 text-red-700' :
-                            item.extraFields.priority === 'medium' ? 'bg-yellow-100 text-yellow-700' :
-                            'bg-green-100 text-green-700'
+                            item.extraFields.priority === 'High' ? 'bg-red-100 text-red-700' :
+                            item.extraFields.priority === 'Medium' ? 'bg-orange-100 text-orange-700' :
+                            'bg-blue-100 text-blue-700'
                           }`}>
                             {item.extraFields.priority}
                           </span>
@@ -720,17 +913,23 @@ function App() {
     return null
   }
 
-  const updateItem = async (itemId: string, title: string, description: string, status: string, extraFields: Record<string, any>) => {
+  const updateItem = async (itemId: string, title: string, description: string, status: string, extraFields: Record<string, any>, bucket?: string) => {
     try {
+      const updateData: any = { 
+        title, 
+        description, 
+        status, 
+        extraFields 
+      }
+      
+      if (bucket) {
+        updateData.bucket = bucket
+      }
+
       const response = await fetch(`/api/items/${itemId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          title, 
-          description, 
-          status, 
-          extraFields 
-        })
+        body: JSON.stringify(updateData)
       })
 
       if (response.ok) {
@@ -777,63 +976,31 @@ function App() {
             </div>
           </div>
 
-          <div className="flex items-center gap-6 mb-4">
-            {Object.entries(bucketConfig).map(([bucket, config]) => {
-              const Icon = config.icon
-              const bucketItems = filteredItems.filter(item => item.bucket === bucket)
-              const isSelected = selectedBucket === bucket
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-6">
+              {Object.entries(bucketConfig).map(([bucket, config]) => {
+                const Icon = config.icon
+                const bucketItems = filteredItems.filter(item => item.bucket === bucket)
+                const isSelected = selectedBucket === bucket
 
-              return (
-                <button
-                  key={bucket}
-                  onClick={() => setSelectedBucket(bucket)}
-                  className={`flex items-center px-4 py-2 rounded-lg transition-colors ${
-                    isSelected 
-                      ? 'bg-blue-50 text-blue-700 border border-blue-200' 
-                      : 'text-gray-600 hover:bg-gray-50 border border-transparent'
-                  }`}
-                >
-                  <Icon className={`w-5 h-5 mr-2 ${config.color}`} />
-                  <span className="font-medium">{config.name}</span>
-                  <span className="ml-2 text-xs bg-gray-200 text-gray-600 px-2 py-0.5 rounded-full">
-                    {bucketItems.length}
-                  </span>
-                </button>
-              )
-            })}
-          </div>
-
-          {/* View Selector */}
-          <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1 mb-4 w-fit">
-            {[
-              { key: 'list', label: 'List', icon: '☰' },
-              { key: 'priority', label: 'Priority', icon: '⚡' },
-              { key: 'status', label: 'Status', icon: '📊' },
-              { key: 'date', label: 'Date', icon: '📅' },
-              { key: 'timeline', label: 'Timeline', icon: '📈' },
-              { key: 'kanban', label: 'Kanban', icon: '📋' }
-            ].map(view => (
-              <button
-                key={view.key}
-                onClick={() => setCurrentView(view.key as any)}
-                className={`px-2 py-1 text-xs rounded-md transition-colors ${
-                  currentView === view.key 
-                    ? 'bg-white text-gray-900 shadow-sm' 
-                    : 'text-gray-600 hover:text-gray-900'
-                }`}
-                title={view.label}
-              >
-                <span className="mr-1">{view.icon}</span>
-                {view.label}
-              </button>
-            ))}
-          </div>
-
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-gray-600">
-                {bucketConfig[selectedBucket as keyof typeof bucketConfig].description}
-              </p>
+                return (
+                  <button
+                    key={bucket}
+                    onClick={() => setSelectedBucket(bucket)}
+                    className={`flex items-center px-4 py-2 rounded-lg transition-colors ${
+                      isSelected 
+                        ? 'bg-blue-50 text-blue-700 border border-blue-200' 
+                        : 'text-gray-600 hover:bg-gray-50 border border-transparent'
+                    }`}
+                  >
+                    <Icon className={`w-5 h-5 mr-2 ${config.color}`} />
+                    <span className="font-medium">{config.name}</span>
+                    <span className="ml-2 text-xs bg-gray-200 text-gray-600 px-2 py-0.5 rounded-full">
+                      {bucketItems.length}
+                    </span>
+                  </button>
+                )
+              })}
             </div>
             
             <div className="relative">
@@ -875,6 +1042,31 @@ function App() {
               )}
             </div>
           </div>
+
+          {/* View Selector */}
+          <div className="flex items-center gap-6 mb-6">
+            {[
+              { key: 'list', label: 'List', icon: '☰' },
+              { key: 'priority', label: 'Priority', icon: '⚡' },
+              { key: 'status', label: 'Status', icon: '📊' },
+              { key: 'date', label: 'Date', icon: '📅' },
+              { key: 'timeline', label: 'Timeline', icon: '📈' },
+              { key: 'kanban', label: 'Kanban', icon: '📋' }
+            ].map(view => (
+              <button
+                key={view.key}
+                onClick={() => setCurrentView(view.key as any)}
+                className={`flex items-center px-4 py-2 rounded-lg transition-colors ${
+                  currentView === view.key 
+                    ? 'bg-blue-50 text-blue-700 border border-blue-200' 
+                    : 'text-gray-600 hover:bg-gray-50 border border-transparent'
+                }`}
+              >
+                <span className="w-5 h-5 mr-2 text-base flex items-center justify-center">{view.icon}</span>
+                <span className="font-medium">{view.label}</span>
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Content */}
@@ -904,7 +1096,7 @@ function App() {
       {showPanel && (
         <div 
           className="fixed inset-0 bg-black bg-opacity-25 z-40"
-          onClick={() => setShowPanel(false)}
+          onClick={() => closePanel()}
         />
       )}
 
@@ -913,24 +1105,21 @@ function App() {
         showPanel ? 'translate-x-0' : 'translate-x-full'
       }`}>
         <div className="flex flex-col h-full">
-          <div className="p-6 border-b border-gray-200">
+          <div className="p-6">
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-semibold text-gray-900">
-                {panelMode === 'add' ? 'Add New Item' : panelMode === 'edit' ? 'Edit Item' : 'Custom Fields'}
+                {panelMode === 'add' ? 'Add New Item' : panelMode === 'edit' ? `Update ${bucketConfig[panelBucket as keyof typeof bucketConfig]?.name.slice(0, -1)}` : 'Custom Fields'}
               </h2>
               <button
-                onClick={() => setShowPanel(false)}
+                onClick={() => closePanel()}
                 className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
-            <p className="text-sm text-gray-600 mt-1">
-              {panelMode === 'fields' ? 'Manage custom fields and assign them to buckets' : bucketConfig[panelBucket as keyof typeof bucketConfig]?.name}
-            </p>
           </div>
 
-          <div className="flex-1 overflow-y-auto p-6">
+          <div className="flex-1 overflow-y-auto px-6 pt-2 pb-6">
             {panelMode === 'fields' ? (
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
@@ -1206,88 +1395,55 @@ function App() {
                 </div>
               </div>
             ) : (
-              <form onSubmit={async (e) => {
-                e.preventDefault()
-                const formData = new FormData(e.currentTarget)
-                
-                // Validate form before proceeding
-                if (!validateForm(formData)) {
-                  return // Stop submission if validation fails
-                }
-                
-                const title = formData.get('title') as string
-                const description = formData.get('description') as string
-                const status = formData.get('status') as string
-                
-                const extraFields: Record<string, any> = {}
-                
-                bucketFields[panelBucket]?.filter(field => 
-                  !['title', 'description', 'status'].includes(field.name.toLowerCase())
-                ).forEach(field => {
-                  const value = formData.get(`custom_${field.name}`)
-                  
-                  if (value !== null) {
-                    if (field.type === 'boolean') {
-                      extraFields[field.name] = value === 'on'
-                    } else {
-                      extraFields[field.name] = value
-                    }
-                  }
-                })
-
-                if (panelMode === 'add') {
-                  const newItem = await createItem(panelBucket, title, description, status, extraFields)
-                  // Create relationships
-                  for (const relatedItemId of selectedRelationships) {
-                    await createRelationship(newItem.id, relatedItemId, relationshipType)
-                  }
-                } else if (currentEditItem) {
-                  await updateItem(currentEditItem.id, title, description, status, extraFields)
-                  // Update relationships - for now just create new ones
-                  for (const relatedItemId of selectedRelationships) {
-                    await createRelationship(currentEditItem.id, relatedItemId, relationshipType)
-                  }
-                }
-                setShowPanel(false)
-                setFormErrors({}) // Clear form errors when closing
-              }}>
-                <div className="space-y-6">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+              <div className="space-y-4">
+                <div className="space-y-4">
+                  <div className="flex items-center gap-4">
+                    <label className="text-sm font-medium text-gray-700 w-20 flex-shrink-0 text-left">
                       Title
                     </label>
                     <input
                       name="title"
                       type="text"
                       required
-                      defaultValue={currentEditItem?.title || ''}
+                      value={formData.title || ''}
+                      onChange={(e) => {
+                        setFormData(prev => ({...prev, title: e.target.value}))
+                        autoSave('title', e.target.value)
+                      }}
                       placeholder={`What ${bucketConfig[panelBucket as keyof typeof bucketConfig]?.name.slice(0, -1).toLowerCase()} are you ${panelMode === 'add' ? 'adding' : 'editing'}?`}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none text-lg"
+                      className="w-4/5 px-2 py-1 border border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none"
                     />
                   </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <div className="flex items-start gap-4">
+                    <label className="text-sm font-medium text-gray-700 w-20 flex-shrink-0 pt-2 text-left">
                       Description
                     </label>
                     <textarea
                       name="description"
-                      rows={4}
-                      defaultValue={currentEditItem?.description || ''}
+                      rows={3}
+                      value={formData.description || ''}
+                      onChange={(e) => {
+                        setFormData(prev => ({...prev, description: e.target.value}))
+                        autoSave('description', e.target.value)
+                      }}
                       placeholder="Add details, context, or notes..."
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none resize-none"
+                      className="w-4/5 px-2 py-1 border border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none resize-none"
                     />
                   </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <div className="flex items-center gap-4">
+                    <label className="text-sm font-medium text-gray-700 w-20 flex-shrink-0 text-left">
                       Status
                     </label>
                     <select
                       name="status"
                       value={formData.status}
-                      onChange={(e) => setFormData({...formData, status: e.target.value})}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none"
+                      onChange={(e) => {
+                        setFormData({...formData, status: e.target.value})
+                        autoSave('status', e.target.value)
+                      }}
+                      className="w-4/5 px-2 py-1 border border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none"
                     >
                       {(apiStatuses[panelBucket] || []).map(status => (
                         <option key={status} value={status}>{status}</option>
@@ -1300,13 +1456,10 @@ function App() {
                     // Exclude fields that have the same name as built-in fields
                     !['title', 'description', 'status'].includes(field.name.toLowerCase())
                   ).map(field => (
-                    <div key={field.id}>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <div key={field.id} className="flex items-center gap-4">
+                      <label className="text-sm font-medium text-gray-700 w-20 flex-shrink-0 text-left">
                         {field.label || field.name}
                         {field.required && <span className="text-red-500 ml-1">*</span>}
-                        {formErrors[field.name] && (
-                          <span className="text-red-500 text-xs ml-2">This field is required</span>
-                        )}
                       </label>
                       {field.type === 'text' && (
                         <input
@@ -1314,7 +1467,7 @@ function App() {
                           type="text"
                           required={field.required}
                           defaultValue={currentEditItem?.extraFields?.[field.name] || field.defaultValue || ''}
-                          className={`w-full px-4 py-3 border rounded-lg focus:outline-none ${
+                          className={`w-4/5 px-2 py-1 border rounded-lg focus:outline-none ${
                             formErrors[field.name] 
                               ? 'border-red-500 focus:border-red-500 bg-red-50' 
                               : 'border-gray-300 focus:border-blue-500'
@@ -1328,7 +1481,7 @@ function App() {
                           type="email"
                           required={field.required}
                           defaultValue={currentEditItem?.extraFields?.[field.name] || field.defaultValue || ''}
-                          className={`w-full px-4 py-3 border rounded-lg focus:outline-none ${
+                          className={`w-4/5 px-2 py-1 border rounded-lg focus:outline-none ${
                             formErrors[field.name] 
                               ? 'border-red-500 focus:border-red-500 bg-red-50' 
                               : 'border-gray-300 focus:border-blue-500'
@@ -1350,7 +1503,7 @@ function App() {
                           type="date"
                           required={field.required}
                           defaultValue={currentEditItem?.extraFields?.[field.name] || field.defaultValue || ''}
-                          className={`w-full px-4 py-3 border rounded-lg focus:outline-none ${
+                          className={`w-4/5 px-2 py-1 border rounded-lg focus:outline-none ${
                             formErrors[field.name] 
                               ? 'border-red-500 focus:border-red-500 bg-red-50' 
                               : 'border-gray-300 focus:border-blue-500'
@@ -1363,13 +1516,24 @@ function App() {
                           name={`custom_${field.name}`}
                           multiple={field.multiSelect}
                           required={field.required}
-                          defaultValue={currentEditItem?.extraFields?.[field.name] || field.defaultValue || (field.multiSelect ? [] : '')}
-                          className={`w-full px-4 py-3 border rounded-lg focus:outline-none ${
+                          value={field.name === 'priority' ? (formData.priority || '') : 
+                                 field.name === 'urgency' ? (formData.urgency || '') :
+                                 (currentEditItem?.extraFields?.[field.name] || field.defaultValue || (field.multiSelect ? [] : ''))}
+                          onChange={(e) => {
+                            setFormErrors(prev => ({...prev, [field.name]: false}))
+                            if (field.name === 'priority') {
+                              setFormData(prev => ({...prev, priority: e.target.value}))
+                              autoSave('priority', e.target.value)
+                            } else if (field.name === 'urgency') {
+                              setFormData(prev => ({...prev, urgency: e.target.value}))
+                              autoSave('urgency', e.target.value)
+                            }
+                          }}
+                          className={`w-4/5 px-2 py-1 border rounded-lg focus:outline-none ${
                             formErrors[field.name] 
                               ? 'border-red-500 focus:border-red-500 bg-red-50' 
                               : 'border-gray-300 focus:border-blue-500'
                           }`}
-                          onChange={() => setFormErrors(prev => ({...prev, [field.name]: false}))}
                         >
                           {field.arrayOptions?.map(option => (
                             <option key={option} value={option}>{option}</option>
@@ -1418,23 +1582,7 @@ function App() {
                     </p>
                   </div>
                 </div>
-
-                <div className="flex gap-3 pt-6 mt-6 border-t border-gray-200">
-                  <button 
-                    type="submit" 
-                    className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                  >
-                    {panelMode === 'add' ? 'Create' : 'Save Changes'}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setShowPanel(false)}
-                    className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </form>
+              </div>
             )}
           </div>
         </div>

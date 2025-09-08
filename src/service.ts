@@ -149,6 +149,7 @@ export class PARAService {
     return this.db.select({
       id: customFields.id,
       name: customFields.name,
+      label: customFields.label,
       type: customFields.type,
       description: customFields.description,
       defaultValue: customFields.defaultValue,
