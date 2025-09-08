@@ -541,10 +541,48 @@ function App() {
                   {priorityLabels[priority as keyof typeof priorityLabels]} ({groupItems.length})
                 </h3>
               </div>
-              <div className="p-4 space-y-3">
+              <div 
+                className={`p-4 space-y-3 min-h-[200px] transition-colors rounded-lg ${
+                  draggedItem && draggedItem !== priority ? 'bg-blue-50 border-2 border-dashed border-blue-300' : ''
+                }`}
+                onDragOver={(e) => e.preventDefault()}
+                onDragEnter={(e) => {
+                  e.preventDefault()
+                  if (draggedItem && draggedItem !== priority) {
+                    e.currentTarget.classList.add('bg-blue-100')
+                  }
+                }}
+                onDragLeave={(e) => {
+                  e.preventDefault()
+                  e.currentTarget.classList.remove('bg-blue-100')
+                }}
+                onDrop={async (e) => {
+                  e.preventDefault()
+                  e.currentTarget.classList.remove('bg-blue-100')
+                  const itemId = e.dataTransfer.getData('text/plain')
+                  const draggedItem = items.find(item => item.id === itemId)
+                  if (draggedItem && draggedItem.extraFields?.priority?.toLowerCase() !== priority) {
+                    try {
+                      const newPriority = priority === 'none' ? undefined : (priority.charAt(0).toUpperCase() + priority.slice(1))
+                      const updatedFields = { ...draggedItem.extraFields, priority: newPriority }
+                      await updateItem(draggedItem.id, draggedItem.title, draggedItem.description || '', draggedItem.status || '', updatedFields)
+                      await loadItems()
+                    } catch (error) {
+                      console.error('Failed to update item priority:', error)
+                    }
+                  }
+                  setDraggedItem(null)
+                }}
+              >
                 {groupItems.map(item => (
                   <div
                     key={item.id}
+                    draggable
+                    onDragStart={(e) => {
+                      e.dataTransfer.setData('text/plain', item.id)
+                      setDraggedItem(item.extraFields?.priority?.toLowerCase() || 'none')
+                    }}
+                    onDragEnd={() => setDraggedItem(null)}
                     onClick={() => openEditPanel(item)}
                     className="bg-white p-3 rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-shadow cursor-pointer"
                   >
