@@ -120,9 +120,9 @@ INSERT INTO statuses (bucket, name, "order") VALUES
 INSERT INTO custom_fields (name, label, type, description, default_value, array_options, multi_select) VALUES
 ('priority', 'Priority', 'array', 'Priority level', '["Medium"]', ARRAY['High', 'Medium', 'Low'], false);
 
--- Insert urgency custom field
+-- Insert energy custom field
 INSERT INTO custom_fields (name, label, type, description, default_value, array_options, multi_select) VALUES
-('urgency', 'Urgency', 'array', 'Urgency level', '["Medium"]', ARRAY['Extreme', 'High', 'Medium', 'Low'], false);
+('energy', 'Energy', 'array', 'Energy level', '["Medium"]', ARRAY['High', 'Medium', 'Low'], false);
 
 -- Insert start date custom field
 INSERT INTO custom_fields (name, label, type, description, default_value, array_options, multi_select) VALUES
@@ -150,11 +150,11 @@ INSERT INTO bucket_fields (bucket, field_id, required) VALUES
 ('AREA', (SELECT id FROM custom_fields WHERE name = 'priority'), true),
 ('ACTION', (SELECT id FROM custom_fields WHERE name = 'priority'), true);
 
--- Assign urgency field as required to Projects, Areas, and Actions only
+-- Assign energy field as required to Projects, Areas, and Actions only
 INSERT INTO bucket_fields (bucket, field_id, required) VALUES
-('PROJECT', (SELECT id FROM custom_fields WHERE name = 'urgency'), true),
-('AREA', (SELECT id FROM custom_fields WHERE name = 'urgency'), true),
-('ACTION', (SELECT id FROM custom_fields WHERE name = 'urgency'), true);
+('PROJECT', (SELECT id FROM custom_fields WHERE name = 'energy'), true),
+('AREA', (SELECT id FROM custom_fields WHERE name = 'energy'), true),
+('ACTION', (SELECT id FROM custom_fields WHERE name = 'energy'), true);
 
 -- Assign start date field as optional to Projects, Areas, and Actions only
 INSERT INTO bucket_fields (bucket, field_id, required) VALUES

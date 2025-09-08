@@ -1,5 +1,10 @@
 import React, { useState, useEffect } from 'react'
+import { Calendar, momentLocalizer } from 'react-big-calendar'
+import moment from 'moment'
+import 'react-big-calendar/lib/css/react-big-calendar.css'
 import { Search, Plus, Settings, X, Target, Briefcase, BookOpen, Archive, CheckSquare, CheckCircle, Link, ChevronDown, ChevronRight, Edit, Trash2 } from 'lucide-react'
+import { type ColumnDef } from '@tanstack/react-table'
+import { DataTable } from './components/DataTable'
 import './App.css'
 
 interface Item {
@@ -75,9 +80,11 @@ function App() {
   const [items, setItems] = useState<Item[]>([])
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedBucket, setSelectedBucket] = useState<string>('PROJECT')
+  const [calendarDate, setCalendarDate] = useState(new Date())
+  const [calendarView, setCalendarView] = useState<'month' | 'week' | 'day' | 'quarter'>('month')
   const [bucketFields, setBucketFields] = useState<Record<string, CustomField[]>>({})
   const [apiStatuses, setApiStatuses] = useState<Record<string, string[]>>({})
-  const [formData, setFormData] = useState<{status: string, priority?: string, urgency?: string, title?: string, description?: string}>({status: "Next Up"})
+  const [formData, setFormData] = useState<{status: string, priority?: string, energy?: string, title?: string, description?: string}>({status: "Next Up"})
   const [showPanel, setShowPanel] = useState(false)
   const [panelMode, setPanelMode] = useState<'add' | 'edit' | 'fields'>('add')
   const [panelBucket, setPanelBucket] = useState<string>('PROJECT')
@@ -86,7 +93,7 @@ function App() {
   const [showAddField, setShowAddField] = useState(false)
   const [showBucketAssignments, setShowBucketAssignments] = useState(false)
   // Predefined fields that cannot be removed from buckets
-  const predefinedFields = ['priority', 'status', 'urgency', 'startDate', 'endDate', 'owner']
+  const predefinedFields = ['priority', 'status', 'energy', 'startDate', 'endDate', 'owner']
   const [showCustomFields, setShowCustomFields] = useState(false)
   const [customFieldSearch, setCustomFieldSearch] = useState('')
   const [editingField, setEditingField] = useState<string | null>(null)
@@ -95,6 +102,7 @@ function App() {
   const [selectedRelationships, setSelectedRelationships] = useState<string[]>([])
   const [relationshipType, setRelationshipType] = useState('contains')
   const [draggedItem, setDraggedItem] = useState<string | null>(null)
+  const [itemRelationships, setItemRelationships] = useState<Record<string, any[]>>({})
   const [currentView, setCurrentView] = useState<'list' | 'priority' | 'status' | 'date' | 'timeline' | 'kanban'>('kanban')
   const [showCreateDropdown, setShowCreateDropdown] = useState(false)
   const [hiddenColumns, setHiddenColumns] = useState<Set<string>>(new Set())
@@ -134,7 +142,7 @@ function App() {
       setFormData({
         status: currentEditItem.status || "Next Up",
         priority: currentEditItem.extraFields?.priority || undefined,
-        urgency: currentEditItem.extraFields?.urgency || undefined,
+        energy: currentEditItem.extraFields?.energy || undefined,
         title: currentEditItem.title || '',
         description: currentEditItem.description || ''
       })
@@ -450,64 +458,261 @@ function App() {
     }
   }
 
-  const renderListView = (items: Item[]) => (
-    <div className="space-y-2">
-      {items.map(item => (
-        <div
-          key={item.id}
-          className="group flex items-center p-3 hover:bg-gray-50 rounded-lg transition-colors cursor-pointer"
-          onClick={() => openEditPanel(item)}
-        >
-          <div className="flex-1">
-            <div className="text-gray-900 font-medium">
-              {item.title}
-            </div>
-            
-            {item.description && (
-              <p className="text-sm text-gray-600 mt-1">{item.description}</p>
+  const renderListView = (filteredItems: Item[]) => {
+    const columns: ColumnDef<Item>[] = [
+      {
+        accessorKey: "title",
+        header: "Title",
+        cell: ({ row }) => (
+          <div className="text-left min-w-[300px] max-w-[400px]">
+            <div className="font-medium">{row.getValue("title")}</div>
+            {row.original.description && (
+              <p className="text-sm text-gray-600 mt-1 truncate">{row.original.description}</p>
             )}
-            
-            <div className="flex items-center gap-2 mt-2">
-              {item.status && (
-                <span className="inline-flex items-center px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded-full">
-                  {item.status === 'Completed' && <CheckCircle className="w-3 h-3 mr-1" />}
-                  {item.status}
-                </span>
-              )}
+          </div>
+        ),
+      },
+      {
+        accessorKey: "status",
+        header: "Status",
+        cell: ({ row }) => {
+          const status = row.getValue("status") as string
+          return status ? (
+            <div className="text-left">
+              <span className="inline-flex items-center px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded-full">
+                {status === 'Completed' && <CheckCircle className="w-3 h-3 mr-1" />}
+                {status}
+              </span>
             </div>
+          ) : null
+        },
+      },
+      // Dynamic columns for all extraFields that have data
+      ...(() => {
+        const allExtraFields = new Set<string>()
+        filteredItems.forEach(item => {
+          if (item.extraFields) {
+            Object.keys(item.extraFields).forEach(key => {
+              if (item.extraFields![key] !== null && item.extraFields![key] !== undefined && item.extraFields![key] !== '') {
+                allExtraFields.add(key)
+              }
+            })
+          }
+        })
+        
+        // Define preferred order for common fields
+        const fieldOrder = ['priority', 'energy', 'startdate', 'startDate', 'enddate', 'endDate', 'owner', 'email']
+        const sortedFields = Array.from(allExtraFields).sort((a, b) => {
+          const aIndex = fieldOrder.indexOf(a)
+          const bIndex = fieldOrder.indexOf(b)
+          if (aIndex !== -1 && bIndex !== -1) return aIndex - bIndex
+          if (aIndex !== -1) return -1
+          if (bIndex !== -1) return 1
+          return a.localeCompare(b)
+        })
+        
+        return sortedFields.map(fieldName => {
+          // Find the field definition to get the label
+          const fieldDef = bucketFields[selectedBucket]?.find(f => f.name === fieldName)
+          const headerLabel = fieldDef?.label || fieldName.charAt(0).toUpperCase() + fieldName.slice(1)
+          
+          return {
+            accessorKey: `extraFields.${fieldName}`,
+            header: headerLabel,
+          cell: ({ row }: { row: any }) => {
+            const value = row.original.extraFields?.[fieldName]
+            if (!value) return null
             
-            {/* Relationships Display */}
-            {itemRelationships[item.id] && itemRelationships[item.id].length > 0 && (
-              <div className="mt-2">
+            // Handle different field types
+            if (Array.isArray(value)) {
+              return (
                 <div className="flex flex-wrap gap-1">
-                  {itemRelationships[item.id].slice(0, 3).map((rel, idx) => (
-                    <span key={idx} className="inline-flex items-center px-1.5 py-0.5 bg-blue-50 text-blue-700 text-xs rounded">
-                      {relationshipTypes[rel.relationship] || rel.relationship}: {rel.childTitle || rel.parentTitle}
+                  {value.map((item, idx) => (
+                    <span key={idx} className="inline-flex items-center px-1.5 py-0.5 bg-gray-100 text-gray-700 text-xs rounded">
+                      {item}
                     </span>
                   ))}
-                  {itemRelationships[item.id].length > 3 && (
-                    <span className="text-xs text-gray-400">+{itemRelationships[item.id].length - 3} more</span>
-                  )}
                 </div>
-              </div>
-            )}
-          </div>
-          
-          <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
-            <button 
-              onClick={(e) => {
-                e.stopPropagation()
-                deleteItem(item.id)
-              }}
-              className="p-1 text-gray-400 hover:text-red-600 rounded"
-            >
-              <Trash2 className="w-4 h-4" />
-            </button>
-          </div>
-        </div>
-      ))}
-    </div>
-  )
+              )
+            }
+            
+            if (typeof value === 'boolean') {
+              return (
+                <span className={`inline-flex items-center px-2 py-1 text-xs rounded-full ${
+                  value ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                }`}>
+                  {value ? 'Yes' : 'No'}
+                </span>
+              )
+            }
+            
+            // Special styling for priority and energy
+            if (fieldName === 'priority') {
+              return (
+                <span className={`inline-flex items-center px-2 py-1 text-xs rounded-full ${
+                  value.toLowerCase() === 'high' ? 'bg-red-100 text-red-700' :
+                  value.toLowerCase() === 'medium' ? 'bg-yellow-100 text-yellow-700' :
+                  'bg-green-100 text-green-700'
+                }`}>
+                  {value}
+                </span>
+              )
+            }
+            
+            if (fieldName === 'energy') {
+              return (
+                <span className={`inline-flex items-center px-2 py-1 text-xs rounded-full ${
+                  value.toLowerCase() === 'high' ? 'bg-blue-100 text-blue-700' :
+                  value.toLowerCase() === 'medium' ? 'bg-purple-100 text-purple-700' :
+                  'bg-gray-100 text-gray-700'
+                }`}>
+                  {value}
+                </span>
+              )
+            }
+            
+            // Format dates
+            if (fieldName.toLowerCase().includes('date') || 
+                fieldName.toLowerCase().includes('deadline') ||
+                fieldName.toLowerCase().includes('due') ||
+                fieldName.toLowerCase().includes('start') ||
+                fieldName.toLowerCase().includes('end') ||
+                fieldName.toLowerCase().includes('created') ||
+                fieldName.toLowerCase().includes('updated') ||
+                fieldName === 'startDate' ||
+                fieldName === 'endDate' ||
+                fieldName === 'startdate' ||
+                fieldName === 'enddate') {
+              try {
+                const date = new Date(value)
+                if (!isNaN(date.getTime())) {
+                  return <span className="text-sm">{date.toLocaleDateString('en-GB')}</span>
+                }
+              } catch {
+                // Fall through to default
+              }
+            }
+            
+            // Default text display
+            return <span className="text-sm">{value}</span>
+          },
+        }
+      })
+      })(),
+      // Separate relationship columns for each bucket
+      {
+        id: "projects",
+        header: "Projects",
+        cell: ({ row }) => {
+          const relationships = itemRelationships[row.original.id]
+          const projectRels = relationships?.filter(rel => {
+            const childBucket = rel.childBucket?.toLowerCase()
+            const parentBucket = rel.parentBucket?.toLowerCase()
+            return childBucket === 'projects' || parentBucket === 'projects' || 
+                   childBucket === 'project' || parentBucket === 'project'
+          }) || []
+          return projectRels.length > 0 ? (
+            <div className="flex flex-wrap gap-1">
+              {projectRels.slice(0, 2).map((rel, idx) => (
+                <span key={idx} className="inline-flex items-center px-1.5 py-0.5 bg-blue-50 text-blue-700 text-xs rounded">
+                  {rel.childTitle || rel.parentTitle}
+                </span>
+              ))}
+              {projectRels.length > 2 && (
+                <span className="text-xs text-gray-400">+{projectRels.length - 2}</span>
+              )}
+            </div>
+          ) : null
+        },
+      },
+      {
+        id: "areas",
+        header: "Areas",
+        cell: ({ row }) => {
+          const relationships = itemRelationships[row.original.id]
+          const areaRels = relationships?.filter(rel => {
+            const childBucket = rel.childBucket?.toLowerCase()
+            const parentBucket = rel.parentBucket?.toLowerCase()
+            return childBucket === 'areas' || parentBucket === 'areas' || 
+                   childBucket === 'area' || parentBucket === 'area'
+          }) || []
+          return areaRels.length > 0 ? (
+            <div className="flex flex-wrap gap-1">
+              {areaRels.slice(0, 2).map((rel, idx) => (
+                <span key={idx} className="inline-flex items-center px-1.5 py-0.5 bg-green-50 text-green-700 text-xs rounded">
+                  {rel.childTitle || rel.parentTitle}
+                </span>
+              ))}
+              {areaRels.length > 2 && (
+                <span className="text-xs text-gray-400">+{areaRels.length - 2}</span>
+              )}
+            </div>
+          ) : null
+        },
+      },
+      {
+        id: "resources",
+        header: "Resources",
+        cell: ({ row }) => {
+          const relationships = itemRelationships[row.original.id]
+          const resourceRels = relationships?.filter(rel => {
+            const childBucket = rel.childBucket?.toLowerCase()
+            const parentBucket = rel.parentBucket?.toLowerCase()
+            return childBucket === 'resources' || parentBucket === 'resources' || 
+                   childBucket === 'resource' || parentBucket === 'resource'
+          }) || []
+          return resourceRels.length > 0 ? (
+            <div className="flex flex-wrap gap-1">
+              {resourceRels.slice(0, 2).map((rel, idx) => (
+                <span key={idx} className="inline-flex items-center px-1.5 py-0.5 bg-yellow-50 text-yellow-700 text-xs rounded">
+                  {rel.childTitle || rel.parentTitle}
+                </span>
+              ))}
+              {resourceRels.length > 2 && (
+                <span className="text-xs text-gray-400">+{resourceRels.length - 2}</span>
+              )}
+            </div>
+          ) : null
+        },
+      },
+      {
+        id: "actions",
+        header: "Actions",
+        cell: ({ row }) => {
+          const relationships = itemRelationships[row.original.id]
+          const actionRels = relationships?.filter(rel => {
+            const childBucket = rel.childBucket?.toLowerCase()
+            const parentBucket = rel.parentBucket?.toLowerCase()
+            return childBucket === 'actions' || parentBucket === 'actions' || 
+                   childBucket === 'action' || parentBucket === 'action'
+          }) || []
+          return actionRels.length > 0 ? (
+            <div className="flex flex-wrap gap-1">
+              {actionRels.slice(0, 2).map((rel, idx) => (
+                <span key={idx} className="inline-flex items-center px-1.5 py-0.5 bg-red-50 text-red-700 text-xs rounded">
+                  {rel.childTitle || rel.parentTitle}
+                </span>
+              ))}
+              {actionRels.length > 2 && (
+                <span className="text-xs text-gray-400">+{actionRels.length - 2}</span>
+              )}
+            </div>
+          ) : null
+        },
+      },
+    ]
+
+    return (
+      <DataTable 
+        columns={columns} 
+        data={filteredItems} 
+        onRowClick={openEditPanel}
+        itemRelationships={itemRelationships}
+        currentBucket={selectedBucket}
+        allItems={items}
+      />
+    )
+  }
 
   const renderPriorityView = (items: Item[]) => {
     const priorityGroups = {
@@ -597,9 +802,9 @@ function App() {
                     )}
                     <div className="flex items-center justify-between text-xs text-gray-500">
                       <span className="px-2 py-1 bg-gray-100 rounded">{item.status}</span>
-                      {item.extraFields?.urgency && (
+                      {item.extraFields?.energy && (
                         <span className="px-2 py-1 bg-orange-100 text-orange-700 rounded">
-                          {item.extraFields.urgency}
+                          {item.extraFields.energy}
                         </span>
                       )}
                     </div>
@@ -641,13 +846,178 @@ function App() {
   }
 
   const renderDateView = (items: Item[]) => {
-    const sortedItems = [...items].sort((a, b) => {
-      const dateA = a.extraFields?.deadline || a.createdAt || ''
-      const dateB = b.extraFields?.deadline || b.createdAt || ''
-      return new Date(dateB).getTime() - new Date(dateA).getTime()
-    })
+    const localizer = momentLocalizer(moment)
+    
+    // Convert items to calendar events
+    const events = items.map(item => {
+      const startDate = item.extraFields?.startdate || item.extraFields?.startDate
+      const endDate = item.extraFields?.deadline || item.extraFields?.enddate || item.extraFields?.endDate
+      const singleDate = endDate || startDate
+      
+      if (singleDate) {
+        return {
+          id: item.id,
+          title: item.title,
+          start: new Date(startDate || singleDate),
+          end: new Date(endDate || singleDate),
+          resource: item,
+          style: {
+            backgroundColor: bucketConfig[item.bucket as keyof typeof bucketConfig]?.color,
+            borderColor: bucketConfig[item.bucket as keyof typeof bucketConfig]?.color,
+          }
+        }
+      }
+      return null
+    }).filter(Boolean)
 
-    return renderListView(sortedItems)
+    // Custom toolbar component
+    const CustomToolbar = ({ label, onNavigate, onView, view }: any) => {
+      const goToBack = () => {
+        if (view === 'quarter') {
+          onNavigate('PREV', moment(calendarDate).subtract(3, 'months').toDate())
+        } else {
+          onNavigate('PREV')
+        }
+      }
+      
+      const goToNext = () => {
+        if (view === 'quarter') {
+          onNavigate('NEXT', moment(calendarDate).add(3, 'months').toDate())
+        } else {
+          onNavigate('NEXT')
+        }
+      }
+      
+      const goToToday = () => {
+        onNavigate('TODAY')
+      }
+      
+      const getLabel = () => {
+        if (view === 'quarter') {
+          const quarter = Math.floor(moment(calendarDate).month() / 3) + 1
+          return `Q${quarter} ${moment(calendarDate).year()}`
+        }
+        return label
+      }
+      
+      return (
+        <div className="rbc-toolbar">
+          <span className="rbc-btn-group">
+            <button type="button" onClick={goToBack}>‹</button>
+            <button type="button" onClick={goToToday}>Today</button>
+            <button type="button" onClick={goToNext}>›</button>
+          </span>
+          <span className="rbc-toolbar-label">{getLabel()}</span>
+          <span className="rbc-btn-group">
+            <button type="button" className={view === 'month' ? 'rbc-active' : ''} onClick={() => onView('month')}>Month</button>
+            <button type="button" className={view === 'week' ? 'rbc-active' : ''} onClick={() => onView('week')}>Week</button>
+            <button type="button" className={view === 'day' ? 'rbc-active' : ''} onClick={() => onView('day')}>Day</button>
+            <button type="button" className={view === 'quarter' ? 'rbc-active' : ''} onClick={() => onView('quarter')}>Quarter</button>
+          </span>
+        </div>
+      )
+    }
+    const QuarterView = ({ date, localizer, events }: any) => {
+      const startOfQuarter = moment(date).startOf('quarter').toDate()
+      const endOfQuarter = moment(date).endOf('quarter').toDate()
+      const months = []
+      
+      for (let i = 0; i < 3; i++) {
+        const monthStart = moment(startOfQuarter).add(i, 'month').startOf('month')
+        months.push({
+          name: monthStart.format('MMMM'),
+          start: monthStart.toDate(),
+          end: monthStart.endOf('month').toDate()
+        })
+      }
+      
+      return (
+        <div className="quarter-view">
+          <div className="grid grid-cols-3 gap-4 h-full">
+            {months.map((month, idx) => {
+              const monthEvents = events.filter((event: any) => 
+                moment(event.start).isBetween(month.start, month.end, 'day', '[]')
+              )
+              
+              return (
+                <div key={idx} className="border border-gray-200 rounded p-2">
+                  <h3 className="font-medium text-center mb-2">{month.name}</h3>
+                  <div className="space-y-1">
+                    {monthEvents.slice(0, 10).map((event: any) => (
+                      <div
+                        key={event.id}
+                        className="text-xs p-1 rounded cursor-pointer hover:opacity-80"
+                        style={{ backgroundColor: event.style.backgroundColor }}
+                        onClick={() => openEditPanel(event.resource)}
+                      >
+                        {event.title}
+                      </div>
+                    ))}
+                    {monthEvents.length > 10 && (
+                      <div className="text-xs text-gray-500">+{monthEvents.length - 10} more</div>
+                    )}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )
+    }
+
+    // Add required properties to QuarterView
+    QuarterView.title = (date: Date) => {
+      const quarter = Math.floor(moment(date).month() / 3) + 1
+      return `Q${quarter} ${moment(date).year()}`
+    }
+
+    QuarterView.navigate = (date: Date, action: string) => {
+      switch (action) {
+        case 'PREV':
+          return moment(date).subtract(3, 'months').toDate()
+        case 'NEXT':
+          return moment(date).add(3, 'months').toDate()
+        case 'TODAY':
+          return new Date()
+        default:
+          return date
+      }
+    }
+
+    QuarterView.range = (date: Date) => {
+      const start = moment(date).startOf('quarter').toDate()
+      const end = moment(date).endOf('quarter').toDate()
+      return { start, end }
+    }
+    
+    return (
+      <div className="h-screen">
+        <Calendar
+          localizer={localizer}
+          events={events}
+          startAccessor="start"
+          endAccessor="end"
+          date={calendarDate}
+          view={calendarView}
+          onNavigate={setCalendarDate}
+          onView={setCalendarView}
+          onSelectEvent={(event) => openEditPanel(event.resource)}
+          eventPropGetter={(event) => ({
+            style: event.style
+          })}
+          views={{
+            month: true,
+            week: true,
+            day: true,
+            quarter: QuarterView
+          }}
+          components={{
+            quarter: QuarterView,
+            toolbar: CustomToolbar
+          }}
+        />
+      </div>
+    )
   }
 
   const renderTimelineView = (items: Item[]) => (
@@ -987,6 +1357,16 @@ function App() {
 
   return (
     <div className="h-screen bg-white">
+      <style>{`
+        select[multiple] option:checked {
+          background: white !important;
+          color: black !important;
+        }
+        select[multiple] option {
+          background: white !important;
+          color: black !important;
+        }
+      `}</style>
       <div className="flex flex-col h-full">
         {/* Header */}
         <div className="border-b border-gray-200 p-6">
@@ -1504,13 +1884,26 @@ function App() {
                           name={`custom_${field.name}`}
                           type="text"
                           required={field.required}
-                          defaultValue={currentEditItem?.extraFields?.[field.name] || field.defaultValue || ''}
+                          value={currentEditItem?.extraFields?.[field.name] || field.defaultValue || ''}
+                          onChange={(e) => {
+                            setFormErrors(prev => ({...prev, [field.name]: false}))
+                            // Update the current edit item state immediately
+                            if (currentEditItem) {
+                              setCurrentEditItem({
+                                ...currentEditItem,
+                                extraFields: {
+                                  ...currentEditItem.extraFields,
+                                  [field.name]: e.target.value
+                                }
+                              })
+                            }
+                            autoSave(field.name, e.target.value)
+                          }}
                           className={`w-4/5 px-2 py-1 border rounded-lg focus:outline-none ${
                             formErrors[field.name] 
                               ? 'border-red-500 focus:border-red-500 bg-red-50' 
                               : 'border-gray-300 focus:border-blue-500'
                           }`}
-                          onChange={() => setFormErrors(prev => ({...prev, [field.name]: false}))}
                         />
                       )}
                       {field.type === 'email' && (
@@ -1540,13 +1933,26 @@ function App() {
                           name={`custom_${field.name}`}
                           type="date"
                           required={field.required}
-                          defaultValue={currentEditItem?.extraFields?.[field.name] || field.defaultValue || ''}
+                          value={currentEditItem?.extraFields?.[field.name] || field.defaultValue || ''}
+                          onChange={(e) => {
+                            setFormErrors(prev => ({...prev, [field.name]: false}))
+                            // Update the current edit item state immediately
+                            if (currentEditItem) {
+                              setCurrentEditItem({
+                                ...currentEditItem,
+                                extraFields: {
+                                  ...currentEditItem.extraFields,
+                                  [field.name]: e.target.value
+                                }
+                              })
+                            }
+                            autoSave(field.name, e.target.value)
+                          }}
                           className={`w-4/5 px-2 py-1 border rounded-lg focus:outline-none ${
                             formErrors[field.name] 
                               ? 'border-red-500 focus:border-red-500 bg-red-50' 
                               : 'border-gray-300 focus:border-blue-500'
                           }`}
-                          onChange={() => setFormErrors(prev => ({...prev, [field.name]: false}))}
                         />
                       )}
                       {field.type === 'array' && (
@@ -1555,16 +1961,16 @@ function App() {
                           multiple={field.multiSelect}
                           required={field.required}
                           value={field.name === 'priority' ? (formData.priority || '') : 
-                                 field.name === 'urgency' ? (formData.urgency || '') :
+                                 field.name === 'energy' ? (formData.energy || '') :
                                  (currentEditItem?.extraFields?.[field.name] || field.defaultValue || (field.multiSelect ? [] : ''))}
                           onChange={(e) => {
                             setFormErrors(prev => ({...prev, [field.name]: false}))
                             if (field.name === 'priority') {
                               setFormData(prev => ({...prev, priority: e.target.value}))
                               autoSave('priority', e.target.value)
-                            } else if (field.name === 'urgency') {
-                              setFormData(prev => ({...prev, urgency: e.target.value}))
-                              autoSave('urgency', e.target.value)
+                            } else if (field.name === 'energy') {
+                              setFormData(prev => ({...prev, energy: e.target.value}))
+                              autoSave('energy', e.target.value)
                             }
                           }}
                           className={`w-4/5 px-2 py-1 border rounded-lg focus:outline-none ${
@@ -1581,44 +1987,140 @@ function App() {
                     </div>
                   ))}
 
-                  {/* Relationships */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Related Items
-                    </label>
+                  {/* Dynamic Relationship Fields by Bucket - Integrated as Form Fields */}
+                  {currentEditItem && (() => {
+                    // Group existing relationships by bucket type
+                    const relationshipsByBucket: Record<string, any[]> = {}
+                    if (itemRelationships[currentEditItem.id]) {
+                      itemRelationships[currentEditItem.id].forEach(rel => {
+                        const relatedItem = rel.childId === currentEditItem.id ? 
+                          { id: rel.parentId, title: rel.parentTitle, bucket: rel.parentBucket, relationship: rel.relationship } :
+                          { id: rel.childId, title: rel.childTitle, bucket: rel.childBucket, relationship: rel.relationship }
+                        
+                        if (!relationshipsByBucket[relatedItem.bucket]) {
+                          relationshipsByBucket[relatedItem.bucket] = []
+                        }
+                        relationshipsByBucket[relatedItem.bucket].push(relatedItem)
+                      })
+                    }
+
+                    // Show fields for all bucket types (except current item's bucket)
+                    const allBuckets = Object.keys(bucketConfig).filter(bucket => bucket !== currentEditItem.bucket)
                     
-                    <div className="space-y-3">
-                      <select
-                        value={relationshipType}
-                        onChange={(e) => setRelationshipType(e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      >
-                        {Object.entries(relationshipTypes).map(([key, label]) => (
-                          <option key={key} value={key}>{label}</option>
-                        ))}
-                      </select>
-                      
-                      <select
-                        multiple
-                        value={selectedRelationships}
-                        onChange={(e) => setSelectedRelationships(Array.from(e.target.selectedOptions, option => option.value))}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                        size={4}
-                      >
-                        {availableItems
-                          .filter(item => item.id !== currentEditItem?.id)
-                          .map(item => (
-                            <option key={item.id} value={item.id}>
-                              [{bucketConfig[item.bucket]?.name}] {item.title}
-                            </option>
-                          ))}
-                      </select>
-                    </div>
-                    
-                    <p className="text-xs text-gray-500 mt-1">
-                      Select relationship type, then hold Ctrl/Cmd to select multiple items
-                    </p>
-                  </div>
+                    return allBuckets.map(bucket => {
+                      const relatedItems = relationshipsByBucket[bucket] || []
+                      return (
+                        <div key={bucket} className="flex items-center gap-3 py-2">
+                          <div className="flex items-center gap-2 w-1/5">
+                            <label className="text-sm text-gray-700 font-medium">
+                              {bucketConfig[bucket]?.name}
+                            </label>
+                          </div>
+                          <div className="w-4/5">
+                            <select
+                              multiple
+                              value={relatedItems.map(item => item.id)}
+                              onChange={async (e) => {
+                                const selectedIds = Array.from(e.target.selectedOptions, option => option.value)
+                                const currentIds = relatedItems.map(item => item.id)
+                                
+                                // Find items to remove (were selected, now not)
+                                const toRemove = currentIds.filter(id => !selectedIds.includes(id))
+                                // Find items to add (not selected before, now selected)
+                                const toAdd = selectedIds.filter(id => !currentIds.includes(id))
+                                
+                                try {
+                                  // Remove relationships
+                                  for (const itemId of toRemove) {
+                                    const rel = itemRelationships[currentEditItem.id]?.find(r => 
+                                      (r.childId === itemId && r.parentId === currentEditItem.id) ||
+                                      (r.parentId === itemId && r.childId === currentEditItem.id)
+                                    )
+                                    if (rel) {
+                                      await fetch(`/api/relationships/${rel.id}`, { method: 'DELETE' })
+                                    }
+                                  }
+                                  
+                                  // Add new relationships
+                                  for (const itemId of toAdd) {
+                                    await createRelationship(currentEditItem.id, itemId, 'contains')
+                                  }
+                                  
+                                  // Reload relationships
+                                  await loadItemRelationships(currentEditItem.id)
+                                } catch (error) {
+                                  console.error('Failed to update relationships:', error)
+                                }
+                              }}
+                              onMouseDown={(e) => {
+                                // Handle Cmd+click for deselection
+                                if (e.metaKey || e.ctrlKey) {
+                                  const option = e.target as HTMLOptionElement
+                                  if (option.tagName === 'OPTION') {
+                                    const itemId = option.value
+                                    const isCurrentlySelected = relatedItems.some(rel => rel.id === itemId)
+                                    
+                                    if (isCurrentlySelected) {
+                                      // Deselect this item
+                                      setTimeout(async () => {
+                                        try {
+                                          const rel = itemRelationships[currentEditItem.id]?.find(r => 
+                                            (r.childId === itemId && r.parentId === currentEditItem.id) ||
+                                            (r.parentId === itemId && r.childId === currentEditItem.id)
+                                          )
+                                          if (rel) {
+                                            await fetch(`/api/relationships/${rel.id}`, { method: 'DELETE' })
+                                            await loadItemRelationships(currentEditItem.id)
+                                          }
+                                        } catch (error) {
+                                          console.error('Failed to remove relationship:', error)
+                                        }
+                                      }, 0)
+                                    }
+                                  }
+                                }
+                              }}
+                              className="w-full px-2 py-1 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                              style={{
+                                background: 'white'
+                              }}
+                              size={Math.min(Math.max(relatedItems.length + 1, 3), 6)}
+                            >
+                              {availableItems
+                                .filter(item => item.bucket === bucket && item.id !== currentEditItem?.id)
+                                .sort((a, b) => {
+                                  const aIsSelected = relatedItems.some(rel => rel.id === a.id)
+                                  const bIsSelected = relatedItems.some(rel => rel.id === b.id)
+                                  if (aIsSelected && !bIsSelected) return -1
+                                  if (!aIsSelected && bIsSelected) return 1
+                                  return a.title.localeCompare(b.title)
+                                })
+                                .map(item => {
+                                  const isSelected = relatedItems.some(rel => rel.id === item.id)
+                                  return (
+                                    <option 
+                                      key={item.id} 
+                                      value={item.id}
+                                      style={{
+                                        fontWeight: isSelected ? 'bold' : 'normal'
+                                      }}
+                                    >
+                                      {isSelected ? '✓ ' : ''}{item.title}
+                                    </option>
+                                  )
+                                })}
+                            </select>
+                            {relatedItems.length > 0 && (
+                              <p className="text-xs text-gray-500 mt-1">
+                                Hold Cmd + click to deselect items
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      )
+                    })
+                  })()}
+
                 </div>
               </div>
             )}

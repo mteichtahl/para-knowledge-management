@@ -4,26 +4,26 @@ import { BucketType } from './types';
 const service = new PARAService();
 
 const projects = [
-  { title: "Website Redesign", description: "Complete overhaul of company website with modern design", priority: "High", urgency: "Medium" },
-  { title: "Mobile App Development", description: "Build native iOS and Android apps", priority: "High", urgency: "High" },
-  { title: "Customer Portal", description: "Self-service portal for customer account management", priority: "Medium", urgency: "Medium" },
-  { title: "API Documentation", description: "Comprehensive API docs for developers", priority: "Medium", urgency: "Low" },
-  { title: "Security Audit", description: "Third-party security assessment and remediation", priority: "High", urgency: "High" },
-  { title: "Database Migration", description: "Migrate from MySQL to PostgreSQL", priority: "High", urgency: "Medium" },
-  { title: "Marketing Campaign Q2", description: "Launch new product marketing campaign", priority: "Medium", urgency: "Medium" },
-  { title: "Employee Training Program", description: "Develop comprehensive onboarding program", priority: "Medium", urgency: "Low" },
-  { title: "Cloud Infrastructure", description: "Migrate to AWS cloud infrastructure", priority: "High", urgency: "Medium" },
-  { title: "Performance Optimization", description: "Optimize application performance and load times", priority: "Medium", urgency: "Medium" },
-  { title: "Compliance Framework", description: "Implement GDPR and SOC2 compliance", priority: "High", urgency: "High" },
-  { title: "Analytics Dashboard", description: "Build executive analytics dashboard", priority: "Medium", urgency: "Low" },
-  { title: "Inventory Management", description: "New inventory tracking system", priority: "Medium", urgency: "Medium" },
-  { title: "Customer Feedback System", description: "Automated feedback collection and analysis", priority: "Low", urgency: "Low" },
-  { title: "Legacy System Cleanup", description: "Decommission old systems and migrate data", priority: "Low", urgency: "Low" },
-  { title: "Backup Strategy", description: "Implement comprehensive backup and recovery", priority: "High", urgency: "Medium" },
-  { title: "Team Collaboration Tools", description: "Deploy new collaboration platform", priority: "Medium", urgency: "Medium" },
-  { title: "Quality Assurance Process", description: "Establish QA testing procedures", priority: "Medium", urgency: "Medium" },
-  { title: "Vendor Management System", description: "Centralized vendor relationship management", priority: "Low", urgency: "Low" },
-  { title: "Knowledge Base", description: "Internal knowledge sharing platform", priority: "Medium", urgency: "Low" }
+  { title: "Website Redesign", description: "Complete overhaul of company website with modern design", priority: "High", energy: "Medium" },
+  { title: "Mobile App Development", description: "Build native iOS and Android apps", priority: "High", energy: "High" },
+  { title: "Customer Portal", description: "Self-service portal for customer account management", priority: "Medium", energy: "Medium" },
+  { title: "API Documentation", description: "Comprehensive API docs for developers", priority: "Medium", energy: "Low" },
+  { title: "Security Audit", description: "Third-party security assessment and remediation", priority: "High", energy: "High" },
+  { title: "Database Migration", description: "Migrate from MySQL to PostgreSQL", priority: "High", energy: "Medium" },
+  { title: "Marketing Campaign Q2", description: "Launch new product marketing campaign", priority: "Medium", energy: "Medium" },
+  { title: "Employee Training Program", description: "Develop comprehensive onboarding program", priority: "Medium", energy: "Low" },
+  { title: "Cloud Infrastructure", description: "Migrate to AWS cloud infrastructure", priority: "High", energy: "Medium" },
+  { title: "Performance Optimization", description: "Optimize application performance and load times", priority: "Medium", energy: "Medium" },
+  { title: "Compliance Framework", description: "Implement GDPR and SOC2 compliance", priority: "High", energy: "High" },
+  { title: "Analytics Dashboard", description: "Build executive analytics dashboard", priority: "Medium", energy: "Low" },
+  { title: "Inventory Management", description: "New inventory tracking system", priority: "Medium", energy: "Medium" },
+  { title: "Customer Feedback System", description: "Automated feedback collection and analysis", priority: "Low", energy: "Low" },
+  { title: "Legacy System Cleanup", description: "Decommission old systems and migrate data", priority: "Low", energy: "Low" },
+  { title: "Backup Strategy", description: "Implement comprehensive backup and recovery", priority: "High", energy: "Medium" },
+  { title: "Team Collaboration Tools", description: "Deploy new collaboration platform", priority: "Medium", energy: "Medium" },
+  { title: "Quality Assurance Process", description: "Establish QA testing procedures", priority: "Medium", energy: "Medium" },
+  { title: "Vendor Management System", description: "Centralized vendor relationship management", priority: "Low", energy: "Low" },
+  { title: "Knowledge Base", description: "Internal knowledge sharing platform", priority: "Medium", energy: "Low" }
 ];
 
 const areas = [
@@ -38,18 +38,18 @@ const areas = [
 ];
 
 const actions = [
-  { title: "Review wireframes", description: "Review new UI wireframes from design team", priority: "High", urgency: "High" },
-  { title: "Update documentation", description: "Update API documentation with latest changes", priority: "Medium", urgency: "Medium" },
-  { title: "Schedule team meeting", description: "Schedule weekly team standup meeting", priority: "Medium", urgency: "Medium" },
-  { title: "Code review PR #123", description: "Review pull request for authentication module", priority: "High", urgency: "High" },
-  { title: "Deploy to staging", description: "Deploy latest build to staging environment", priority: "High", urgency: "Medium" },
-  { title: "Update dependencies", description: "Update npm packages to latest versions", priority: "Low", urgency: "Low" },
-  { title: "Write unit tests", description: "Add unit tests for payment processing", priority: "Medium", urgency: "Medium" },
-  { title: "Client presentation", description: "Prepare presentation for client meeting", priority: "High", urgency: "High" },
-  { title: "Database backup", description: "Perform weekly database backup", priority: "High", urgency: "Medium" },
-  { title: "Security scan", description: "Run security vulnerability scan", priority: "Medium", urgency: "Medium" },
-  { title: "Performance testing", description: "Load test new features", priority: "Medium", urgency: "Low" },
-  { title: "Bug triage", description: "Triage and prioritize reported bugs", priority: "High", urgency: "Medium" }
+  { title: "Review wireframes", description: "Review new UI wireframes from design team", priority: "High", energy: "High" },
+  { title: "Update documentation", description: "Update API documentation with latest changes", priority: "Medium", energy: "Medium" },
+  { title: "Schedule team meeting", description: "Schedule weekly team standup meeting", priority: "Medium", energy: "Medium" },
+  { title: "Code review PR #123", description: "Review pull request for authentication module", priority: "High", energy: "High" },
+  { title: "Deploy to staging", description: "Deploy latest build to staging environment", priority: "High", energy: "Medium" },
+  { title: "Update dependencies", description: "Update npm packages to latest versions", priority: "Low", energy: "Low" },
+  { title: "Write unit tests", description: "Add unit tests for payment processing", priority: "Medium", energy: "Medium" },
+  { title: "Client presentation", description: "Prepare presentation for client meeting", priority: "High", energy: "High" },
+  { title: "Database backup", description: "Perform weekly database backup", priority: "High", energy: "Medium" },
+  { title: "Security scan", description: "Run security vulnerability scan", priority: "Medium", energy: "Medium" },
+  { title: "Performance testing", description: "Load test new features", priority: "Medium", energy: "Low" },
+  { title: "Bug triage", description: "Triage and prioritize reported bugs", priority: "High", energy: "Medium" }
 ];
 
 const resources = [
@@ -87,7 +87,7 @@ async function populateDatabase() {
       title: project.title,
       description: project.description,
       statusName: 'Next Up',
-      extraFields: { priority: project.priority, urgency: project.urgency }
+      extraFields: { priority: project.priority, energy: project.energy }
     });
   }
 
@@ -98,8 +98,8 @@ async function populateDatabase() {
       bucket: BucketType.AREA,
       title: area.title,
       description: area.description,
-      statusName: 'Active',
-      extraFields: { priority: 'Medium', urgency: 'Medium' }
+      statusName: 'Next Up',
+      extraFields: { priority: 'Medium', energy: 'Medium' }
     });
   }
 
@@ -111,7 +111,7 @@ async function populateDatabase() {
       title: action.title,
       description: action.description,
       statusName: 'Next Up',
-      extraFields: { priority: action.priority, urgency: action.urgency }
+      extraFields: { priority: action.priority, energy: action.energy }
     });
   }
 
@@ -122,7 +122,7 @@ async function populateDatabase() {
       bucket: BucketType.RESOURCE,
       title: resource.title,
       description: resource.description,
-      statusName: 'Available',
+      statusName: 'Next Up',
       extraFields: {}
     });
   }
@@ -140,6 +140,136 @@ async function populateDatabase() {
   }
 
   console.log('Database populated successfully!');
+
+  // Create comprehensive sample relationships
+  console.log('Creating comprehensive sample relationships...');
+  
+  // Get items by bucket type
+  const allItems = await service.getAllItems();
+  const projectItems = allItems.filter(item => item.bucket === 'PROJECT');
+  const actionItems = allItems.filter(item => item.bucket === 'ACTION');
+  const resourceItems = allItems.filter(item => item.bucket === 'RESOURCE');
+  const areaItems = allItems.filter(item => item.bucket === 'AREA');
+  const archiveItems = allItems.filter(item => item.bucket === 'ARCHIVE');
+
+  // Project 1: Website Redesign - comprehensive relationships
+  if (projectItems.length > 0) {
+    // Contains multiple actions
+    if (actionItems.length >= 3) {
+      await service.addRelationship({
+        parentId: projectItems[0].id,
+        childId: actionItems[0].id,
+        relationship: 'contains'
+      });
+      await service.addRelationship({
+        parentId: projectItems[0].id,
+        childId: actionItems[1].id,
+        relationship: 'contains'
+      });
+      await service.addRelationship({
+        parentId: projectItems[0].id,
+        childId: actionItems[2].id,
+        relationship: 'contains'
+      });
+    }
+    
+    // Uses multiple resources
+    if (resourceItems.length >= 2) {
+      await service.addRelationship({
+        parentId: projectItems[0].id,
+        childId: resourceItems[0].id,
+        relationship: 'uses'
+      });
+      await service.addRelationship({
+        parentId: projectItems[0].id,
+        childId: resourceItems[1].id,
+        relationship: 'uses'
+      });
+    }
+    
+    // Depends on area
+    if (areaItems.length > 0) {
+      await service.addRelationship({
+        parentId: projectItems[0].id,
+        childId: areaItems[0].id,
+        relationship: 'depends-on'
+      });
+    }
+  }
+
+  // Project 2: Mobile App Development - different relationships
+  if (projectItems.length > 1) {
+    // Contains actions
+    if (actionItems.length >= 5) {
+      await service.addRelationship({
+        parentId: projectItems[1].id,
+        childId: actionItems[3].id,
+        relationship: 'contains'
+      });
+      await service.addRelationship({
+        parentId: projectItems[1].id,
+        childId: actionItems[4].id,
+        relationship: 'contains'
+      });
+    }
+    
+    // Uses resources
+    if (resourceItems.length >= 4) {
+      await service.addRelationship({
+        parentId: projectItems[1].id,
+        childId: resourceItems[2].id,
+        relationship: 'uses'
+      });
+      await service.addRelationship({
+        parentId: projectItems[1].id,
+        childId: resourceItems[3].id,
+        relationship: 'uses'
+      });
+    }
+    
+    // Depends on multiple areas
+    if (areaItems.length >= 2) {
+      await service.addRelationship({
+        parentId: projectItems[1].id,
+        childId: areaItems[1].id,
+        relationship: 'depends-on'
+      });
+    }
+  }
+
+  // Area relationships - areas contain projects and actions
+  if (areaItems.length > 0 && projectItems.length >= 3) {
+    await service.addRelationship({
+      parentId: areaItems[0].id,
+      childId: projectItems[2].id,
+      relationship: 'contains'
+    });
+  }
+
+  // Resource relationships - resources used by multiple items
+  if (resourceItems.length > 0 && actionItems.length >= 7) {
+    await service.addRelationship({
+      parentId: actionItems[5].id,
+      childId: resourceItems[0].id,
+      relationship: 'uses'
+    });
+    await service.addRelationship({
+      parentId: actionItems[6].id,
+      childId: resourceItems[0].id,
+      relationship: 'uses'
+    });
+  }
+
+  // Archive relationships - archived items reference active ones
+  if (archiveItems.length > 0 && projectItems.length >= 4) {
+    await service.addRelationship({
+      parentId: archiveItems[0].id,
+      childId: projectItems[3].id,
+      relationship: 'references'
+    });
+  }
+
+  console.log('Comprehensive sample relationships created!');
   process.exit(0);
 }
 

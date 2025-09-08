@@ -200,6 +200,11 @@ export class PARAService {
       ));
   }
 
+  async removeRelationshipById(relationshipId: string): Promise<void> {
+    await this.db.delete(itemRelations)
+      .where(eq(itemRelations.id, relationshipId));
+  }
+
   async getItemRelationships(itemId: string): Promise<any[]> {
     const parentItems = alias(items, 'parentItems');
     const childItems = alias(items, 'childItems');

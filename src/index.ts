@@ -231,9 +231,18 @@ const server = createServer(async (req, res) => {
   if (method === 'DELETE' && pathname.startsWith('/api/relationships/')) {
     try {
       const pathParts = pathname.split('/');
-      const parentId = pathParts[3];
-      const childId = pathParts[4];
-      await service.removeRelationship(parentId, childId);
+      if (pathParts.length === 4) {
+        // Single relationship ID: /api/relationships/{id}
+        const relationshipId = pathParts[3];
+        await service.removeRelationshipById(relationshipId);
+      } else if (pathParts.length === 5) {
+        // Parent and child IDs: /api/relationships/{parentId}/{childId}
+        const parentId = pathParts[3];
+        const childId = pathParts[4];
+        await service.removeRelationship(parentId, childId);
+      } else {
+        throw new Error('Invalid relationship delete path');
+      }
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ success: true }));
     } catch (error) {
