@@ -4,10 +4,20 @@ import { Calendar, momentLocalizer } from 'react-big-calendar'
 import moment from 'moment'
 import 'react-big-calendar/lib/css/react-big-calendar.css'
 import ForceGraph2D from 'react-force-graph-2d'
-import { Search, Plus, Settings, X, Target, Briefcase, BookOpen, Archive, CheckSquare, CheckCircle, Link, ChevronDown, ChevronRight, Edit, Trash2, Menu } from 'lucide-react'
+import { Search, Plus, Settings, X, Target, Briefcase, BookOpen, Archive, CheckSquare, CheckCircle, Link, ChevronDown, ChevronRight, Edit, Trash2, Menu, AlertTriangle, Zap, CalendarDays } from 'lucide-react'
 import { type ColumnDef } from '@tanstack/react-table'
 import { DataTable } from './components/DataTable'
 import { Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarHeader, SidebarInset, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarProvider, SidebarTrigger } from './components/ui/sidebar'
+import { Button } from './components/ui/button'
+import { Input } from './components/ui/input'
+import { Textarea } from './components/ui/textarea'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './components/ui/select'
+import { Checkbox } from './components/ui/checkbox'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from './components/ui/dropdown-menu'
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from './components/ui/sheet'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from './components/ui/dialog'
+import { Badge } from './components/ui/badge'
+import { Card, CardContent, CardHeader, CardTitle } from './components/ui/card'
 import './App.css'
 
 interface Item {
@@ -82,7 +92,6 @@ const statuses = {
 const D3NetworkGraph: React.FC<{ items: Item[], itemRelationships: Record<string, any[]>, bucketConfig: any }> = ({ items, itemRelationships, bucketConfig }) => {
   const graphRef = useRef<HTMLDivElement>(null)
   const [visibleBuckets, setVisibleBuckets] = useState<Set<string>>(new Set(['PROJECT', 'AREA', 'RESOURCE', 'ARCHIVE', 'ACTION']))
-  const [dropdownOpen, setDropdownOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('')
   
@@ -385,34 +394,32 @@ const D3NetworkGraph: React.FC<{ items: Item[], itemRelationships: Record<string
         />
         
         {/* Filter dropdown */}
-        <div className="relative">
-          <button
-            onClick={() => setDropdownOpen(!dropdownOpen)}
-            className="px-4 py-2 bg-white border rounded-lg shadow-sm text-sm hover:bg-gray-50"
-          >
-            Filter Buckets ({visibleBuckets.size}/5) ▼
-          </button>
-          
-          {dropdownOpen && (
-            <div className="absolute top-full left-0 mt-1 bg-white border rounded-lg shadow-lg p-2 min-w-48">
-              {Object.entries(bucketColors).map(([bucket, color]) => (
-                <label key={bucket} className="flex items-center space-x-2 p-1 hover:bg-gray-50 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={visibleBuckets.has(bucket)}
-                    onChange={() => toggleBucket(bucket)}
-                    className="rounded"
-                  />
-                  <div 
-                    className="w-3 h-3 rounded-full"
-                    style={{ backgroundColor: color }}
-                  ></div>
-                  <span className="text-sm">{bucket}</span>
-                </label>
-              ))}
-            </div>
-          )}
-        </div>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="sm">
+              Filter Buckets ({visibleBuckets.size}/5) ▼
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent className="min-w-48">
+            {Object.entries(bucketColors).map(([bucket, color]) => (
+              <DropdownMenuItem
+                key={bucket}
+                onClick={() => toggleBucket(bucket)}
+                className="flex items-center space-x-2 cursor-pointer"
+              >
+                <Checkbox
+                  checked={visibleBuckets.has(bucket)}
+                  onChange={() => toggleBucket(bucket)}
+                />
+                <div 
+                  className="w-3 h-3 rounded-full"
+                  style={{ backgroundColor: color }}
+                ></div>
+                <span className="text-sm">{bucket}</span>
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
       
       <div ref={graphRef} className="w-full h-full"></div>
@@ -454,8 +461,10 @@ function App() {
   const [draggedGraphItem, setDraggedGraphItem] = useState<string | null>(null)
   const [itemOrder, setItemOrder] = useState<Record<string, string[]>>({})
   const [currentView, setCurrentView] = useState<'list' | 'priority' | 'status' | 'date' | 'timeline' | 'kanban' | 'graph'>('kanban')
-  const [showCreateDropdown, setShowCreateDropdown] = useState(false)
-  const [hiddenColumns, setHiddenColumns] = useState<Set<string>>(new Set())
+  const [hiddenColumns, setHiddenColumns] = useState<Set<string>>(new Set(['Completed', 'On Hold', 'Wont Do']))
+  const [columnOrder, setColumnOrder] = useState<Record<string, string[]>>({})
+  const [draggedColumn, setDraggedColumn] = useState<string | null>(null)
+  const [availableColumns, setAvailableColumns] = useState<string[]>([])
   const [newField, setNewField] = useState({
     name: '',
     label: '',
@@ -502,18 +511,6 @@ function App() {
     document.addEventListener('keydown', handleEscape)
     return () => document.removeEventListener('keydown', handleEscape)
   }, [showPanel])
-
-  useEffect(() => {
-    // Close dropdown when clicking outside
-    const handleClickOutside = (event: MouseEvent) => {
-      if (showCreateDropdown && !(event.target as Element).closest('.relative')) {
-        setShowCreateDropdown(false)
-      }
-    }
-    
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [showCreateDropdown])
 
   // Update form data when editing item changes
   useEffect(() => {
@@ -1234,7 +1231,7 @@ function App() {
                         setEditingCell({itemId: row.original.id, field: fieldName})
                       }}
                     >
-                      {date.toLocaleDateString('en-GB')}
+                      {date.toLocaleDateString('en-AU')}
                     </span>
                   )
                 }
@@ -1472,7 +1469,7 @@ function App() {
                 }}
               >
                 {groupItems.map(item => (
-                  <div
+                  <Card
                     key={item.id}
                     draggable
                     onDragStart={(e) => {
@@ -1481,26 +1478,32 @@ function App() {
                     }}
                     onDragEnd={() => setDraggedItem(null)}
                     onClick={() => openEditPanel(item)}
-                    className="bg-white p-3 rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-shadow cursor-pointer"
+                    className="cursor-pointer hover:shadow-md transition-shadow"
                   >
-                    <div className="flex items-start justify-between mb-2">
-                      <h4 className="font-medium text-sm text-gray-900 line-clamp-2">{item.title}</h4>
-                      <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${bucketConfig[item.bucket as keyof typeof bucketConfig].color}`}>
-                        {React.createElement(bucketConfig[item.bucket as keyof typeof bucketConfig].icon)}
-                      </span>
-                    </div>
-                    {item.description && (
-                      <p className="text-xs text-gray-600 line-clamp-2 mb-2">{item.description}</p>
-                    )}
-                    <div className="flex items-center justify-between text-xs text-gray-500">
-                      <span className="px-2 py-1 bg-gray-100 rounded">{item.status}</span>
-                      {item.extraFields?.energy && (
-                        <span className="px-2 py-1 bg-orange-100 text-orange-700 rounded">
-                          {item.extraFields.energy}
-                        </span>
+                    <CardContent className="p-3">
+                      <CardTitle className="text-sm font-medium text-gray-900 mb-1 text-left">{item.title}</CardTitle>
+                      {(item.extraFields?.startDate || item.extraFields?.endDate) && (
+                        <div className="text-xs text-gray-500 mb-2 flex items-center gap-1">
+                          <CalendarDays className="w-3 h-3" />
+                          {item.extraFields?.startDate && new Date(item.extraFields.startDate).toLocaleDateString('en-AU')}
+                          {item.extraFields?.startDate && item.extraFields?.endDate && ' - '}
+                          {item.extraFields?.endDate && new Date(item.extraFields.endDate).toLocaleDateString('en-AU')}
+                        </div>
                       )}
-                    </div>
-                  </div>
+                      {item.description && (
+                        <p className="text-sm text-gray-600 mb-2 text-left">{item.description}</p>
+                      )}
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <Badge variant="secondary">{item.status}</Badge>
+                        {item.extraFields?.energy && (
+                          <Badge variant="outline" className="bg-orange-100 text-orange-700 flex items-center gap-1">
+                            <Zap className="w-3 h-3" />
+                            {item.extraFields.energy}
+                          </Badge>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
                 ))}
                 {groupItems.length === 0 && (
                   <div className="text-center py-8 text-gray-500 text-sm">
@@ -1755,6 +1758,14 @@ function App() {
   const renderDateView = (items: Item[]) => {
     const localizer = momentLocalizer(moment)
     
+    // Configure moment formats for react-big-calendar
+    moment.locale('en', {
+      week: {
+        dow: 0, // Sunday is the first day of the week
+        doy: 1  // First week of the year must contain January 1st
+      }
+    })
+    
     // Convert items to calendar events
     const events = items.map(item => {
       const startDate = item.extraFields?.startdate || item.extraFields?.startDate
@@ -1936,7 +1947,7 @@ function App() {
             <div className="flex items-center justify-between">
               <h4 className="font-medium text-gray-900">{item.title}</h4>
               <span className="text-xs text-gray-500">
-                {item.extraFields?.deadline || new Date(item.createdAt).toLocaleDateString()}
+                {item.extraFields?.deadline || new Date(item.createdAt).toLocaleDateString('en-AU')}
               </span>
             </div>
             {item.description && (
@@ -1990,7 +2001,7 @@ function App() {
                   }}
                 >
                   {bucketItems.map(item => (
-                    <div
+                    <Card
                       key={item.id}
                       draggable
                       onDragStart={(e) => {
@@ -1998,23 +2009,42 @@ function App() {
                         setDraggedItem(item.bucket)
                       }}
                       onDragEnd={() => setDraggedItem(null)}
-                      className="bg-white p-3 rounded-lg shadow-sm border cursor-pointer hover:shadow-md transition-shadow"
+                      className="cursor-pointer hover:shadow-md transition-shadow"
                       onClick={() => openEditPanel(item)}
                     >
-                      <h4 className="font-medium text-gray-900 mb-1">{item.title}</h4>
-                      {item.description && (
-                        <p className="text-sm text-gray-600 mb-2">{item.description}</p>
-                      )}
-                      {item.extraFields?.priority && (
-                        <span className={`inline-block px-2 py-1 text-xs rounded-full ${
-                          item.extraFields.priority === 'High' ? 'bg-red-100 text-red-700' :
-                          item.extraFields.priority === 'Medium' ? 'bg-orange-100 text-orange-700' :
-                          'bg-blue-100 text-blue-700'
-                        }`}>
-                          {item.extraFields.priority}
-                        </span>
-                      )}
-                    </div>
+                      <CardContent className="p-3">
+                        <CardTitle className="text-sm font-medium text-gray-900 mb-1 text-left">{item.title}</CardTitle>
+                        {(item.extraFields?.startDate || item.extraFields?.endDate) && (
+                          <div className="text-xs text-gray-500 mb-2 flex items-center gap-1">
+                            <CalendarDays className="w-3 h-3" />
+                            {item.extraFields?.startDate && new Date(item.extraFields.startDate).toLocaleDateString('en-AU')}
+                            {item.extraFields?.startDate && item.extraFields?.endDate && ' - '}
+                            {item.extraFields?.endDate && new Date(item.extraFields.endDate).toLocaleDateString('en-AU')}
+                          </div>
+                        )}
+                        {item.description && (
+                          <p className="text-sm text-gray-600 mb-2 text-left">{item.description}</p>
+                        )}
+                        <div className="flex items-center gap-2 flex-wrap">
+                          {item.extraFields?.priority && (
+                            <Badge variant={
+                              item.extraFields.priority === 'High' ? 'destructive' :
+                              item.extraFields.priority === 'Medium' ? 'secondary' :
+                              'default'
+                            } className="flex items-center gap-1">
+                              <AlertTriangle className="w-3 h-3" />
+                              {item.extraFields.priority}
+                            </Badge>
+                          )}
+                          {item.extraFields?.energy && (
+                            <Badge variant="outline" className="bg-orange-100 text-orange-700 flex items-center gap-1">
+                              <Zap className="w-3 h-3" />
+                              {item.extraFields.energy}
+                            </Badge>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
                   ))}
                   {bucketItems.length === 0 && (
                     <div className="text-center py-8 text-gray-500 text-sm">
@@ -2064,44 +2094,69 @@ function App() {
       statusColumns[status].push(item)
     })
 
+    // Get ordered columns
+    const bucketKey = selectedBucket
+    const defaultOrder = ["Next Up", "Planning", "In Progress", "In Review", "Completed", "On Hold", "Wont Do"]
+    const savedOrder = columnOrder[bucketKey] || defaultOrder
+    const allColumns = Object.keys(statusColumns)
+    const orderedColumns = [
+      ...savedOrder.filter(col => allColumns.includes(col)),
+      ...allColumns.filter(col => !savedOrder.includes(col))
+    ]
+
+    // Set available columns for the dropdown (will be used by parent component)
+    if (availableColumns.join(',') !== orderedColumns.join(',')) {
+      setTimeout(() => setAvailableColumns(orderedColumns), 0)
+    }
+
     return (
       <div className="flex gap-6 overflow-x-auto pb-4">
-        {Object.entries(statusColumns).map(([status, columnItems]) => {
-          const isHidden = hiddenColumns.has(status)
+        {orderedColumns.filter(status => !hiddenColumns.has(status)).map((status) => {
+          const columnItems = statusColumns[status] || []
           
           return (
             <div key={status} className="flex-shrink-0 w-80">
               <div className="bg-gray-50 rounded-lg p-4">
-                <div className="flex items-center justify-between mb-4">
+                <div 
+                  className="flex items-center justify-between mb-4 cursor-move"
+                  draggable
+                  onDragStart={(e) => {
+                    e.dataTransfer.setData('text/plain', status)
+                    setDraggedColumn(status)
+                  }}
+                  onDragEnd={() => setDraggedColumn(null)}
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={(e) => {
+                    e.preventDefault()
+                    const draggedStatus = e.dataTransfer.getData('text/plain')
+                    if (draggedStatus && draggedStatus !== status) {
+                      const newOrder = [...orderedColumns]
+                      const draggedIndex = newOrder.indexOf(draggedStatus)
+                      const targetIndex = newOrder.indexOf(status)
+                      
+                      newOrder.splice(draggedIndex, 1)
+                      newOrder.splice(targetIndex, 0, draggedStatus)
+                      
+                      setColumnOrder({
+                        ...columnOrder,
+                        [bucketKey]: newOrder
+                      })
+                    }
+                  }}
+                >
                   <h3 className="font-medium text-gray-900">
                     {status} ({columnItems.length})
                   </h3>
-                  <button
-                    onClick={() => {
-                      const newHidden = new Set(hiddenColumns)
-                      if (isHidden) {
-                        newHidden.delete(status)
-                      } else {
-                        newHidden.add(status)
-                      }
-                      setHiddenColumns(newHidden)
-                    }}
-                    className="p-1 text-gray-400 hover:text-gray-600 rounded"
-                    title={isHidden ? 'Show column' : 'Hide column'}
-                  >
-                    {isHidden ? <ChevronRight className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                  </button>
                 </div>
                 
-                {!isHidden && (
-                  <div 
-                    className={`space-y-3 min-h-[100px] transition-colors rounded-lg p-2 ${
-                      draggedItem && draggedItem !== status ? 'bg-blue-50 border-2 border-dashed border-blue-300' : ''
-                    }`}
-                    onDragOver={(e) => e.preventDefault()}
-                    onDragEnter={(e) => {
-                      e.preventDefault()
-                      if (draggedItem && draggedItem !== status) {
+                <div 
+                  className={`space-y-3 min-h-[100px] transition-colors rounded-lg p-2 ${
+                    draggedItem && draggedItem !== status ? 'bg-blue-50 border-2 border-dashed border-blue-300' : ''
+                  }`}
+                  onDragOver={(e) => e.preventDefault()}
+                  onDragEnter={(e) => {
+                    e.preventDefault()
+                    if (draggedItem && draggedItem !== status) {
                         e.currentTarget.classList.add('bg-blue-100')
                       }
                     }}
@@ -2126,7 +2181,7 @@ function App() {
                     }}
                   >
                     {columnItems.map(item => (
-                      <div
+                      <Card
                         key={item.id}
                         draggable
                         onDragStart={(e) => {
@@ -2134,26 +2189,44 @@ function App() {
                           setDraggedItem(item.status || 'No Status')
                         }}
                         onDragEnd={() => setDraggedItem(null)}
-                        className="bg-white p-3 rounded-lg shadow-sm border cursor-pointer hover:shadow-md transition-shadow"
+                        className="cursor-pointer hover:shadow-md transition-shadow"
                         onClick={() => openEditPanel(item)}
                       >
-                        <h4 className="font-medium text-gray-900 mb-1">{item.title}</h4>
-                        {item.description && (
-                          <p className="text-sm text-gray-600 mb-2">{item.description}</p>
-                        )}
-                        {item.extraFields?.priority && (
-                          <span className={`inline-block px-2 py-1 text-xs rounded-full ${
-                            item.extraFields.priority === 'High' ? 'bg-red-100 text-red-700' :
-                            item.extraFields.priority === 'Medium' ? 'bg-orange-100 text-orange-700' :
-                            'bg-blue-100 text-blue-700'
-                          }`}>
-                            {item.extraFields.priority}
-                          </span>
-                        )}
-                      </div>
+                        <CardContent className="p-3">
+                          <CardTitle className="text-sm font-medium text-gray-900 mb-1 text-left">{item.title}</CardTitle>
+                          {(item.extraFields?.startDate || item.extraFields?.endDate) && (
+                            <div className="text-xs text-gray-500 mb-2 flex items-center gap-1">
+                              <CalendarDays className="w-3 h-3" />
+                              {item.extraFields?.startDate && new Date(item.extraFields.startDate).toLocaleDateString('en-AU')}
+                              {item.extraFields?.startDate && item.extraFields?.endDate && ' - '}
+                              {item.extraFields?.endDate && new Date(item.extraFields.endDate).toLocaleDateString('en-AU')}
+                            </div>
+                          )}
+                          {item.description && (
+                            <p className="text-sm text-gray-600 mb-2 text-left">{item.description}</p>
+                          )}
+                          <div className="flex items-center gap-2 flex-wrap">
+                            {item.extraFields?.priority && (
+                              <Badge variant={
+                                item.extraFields.priority === 'High' ? 'destructive' :
+                                item.extraFields.priority === 'Medium' ? 'secondary' :
+                                'default'
+                              } className="flex items-center gap-1">
+                                <AlertTriangle className="w-3 h-3" />
+                                {item.extraFields.priority}
+                              </Badge>
+                            )}
+                            {item.extraFields?.energy && (
+                              <Badge variant="outline" className="bg-orange-100 text-orange-700 flex items-center gap-1">
+                                <Zap className="w-3 h-3" />
+                                {item.extraFields.energy}
+                              </Badge>
+                            )}
+                          </div>
+                        </CardContent>
+                      </Card>
                     ))}
                   </div>
-                )}
               </div>
             </div>
           )
@@ -2305,12 +2378,12 @@ function App() {
                 <div className="px-4 py-2">
                   <div className="relative">
                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                    <input
+                    <Input
                       type="text"
                       placeholder="Search..."
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
-                      className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-md focus:border-blue-500 focus:outline-none"
+                      className="pl-9"
                     />
                   </div>
                 </div>
@@ -2369,13 +2442,15 @@ function App() {
             </div>
             
             <div className="ml-auto">
-              <button 
+              <Button 
                 onClick={openFieldsPanel}
-                className="flex items-center px-3 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-md"
+                variant="ghost"
+                size="sm"
+                className="flex items-center gap-2"
               >
-                <Settings className="w-4 h-4 mr-2" />
+                <Settings className="w-4 h-4" />
                 Custom Fields
-              </button>
+              </Button>
             </div>
           </header>
           
@@ -2395,59 +2470,80 @@ function App() {
                 { key: 'timeline', label: 'Timeline', icon: '📈' },
                 { key: 'kanban', label: 'Kanban', icon: '📋' }
               ].map(view => (
-                <button
+                <Button
                   key={view.key}
                   onClick={() => setCurrentView(view.key as any)}
-                  className={`flex items-center px-4 py-2 rounded-lg transition-colors ${
-                    currentView === view.key 
-                      ? 'bg-blue-50 text-blue-700 border border-blue-200' 
-                      : 'text-gray-600 hover:bg-gray-50 border border-transparent'
-                  }`}
+                  variant={currentView === view.key ? "default" : "outline"}
+                  size="sm"
+                  className="flex items-center gap-2"
                 >
-                  <span className="w-5 h-5 mr-2 text-base flex items-center justify-center">{view.icon}</span>
+                  <span className="text-base">{view.icon}</span>
                   <span className="font-medium">{view.label}</span>
-                </button>
+                </Button>
               ))}
             </div>
             
-            <div className="relative">
-              <button
-                onClick={() => setShowCreateDropdown(!showCreateDropdown)}
-                className="inline-flex items-center px-4 py-2 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
-              >
-                <Plus className="w-4 h-4 mr-2" />
-                Create New
-                <ChevronDown className="w-4 h-4 ml-2" />
-              </button>
-              
-              {showCreateDropdown && (
-                <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border z-10">
-                  {Object.entries(bucketConfig).map(([bucket, config]) => {
-                    const Icon = config.icon
-                    return (
-                      <button
-                        key={bucket}
-                        onClick={() => {
-                          openAddPanel(bucket)
-                          setShowCreateDropdown(false)
+            {currentView === 'kanban' && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" className="flex items-center gap-2">
+                    Columns
+                    <ChevronDown className="w-4 h-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48">
+                  {availableColumns.map(status => (
+                    <div key={status} className="flex items-center space-x-2 px-2 py-1">
+                      <input
+                        type="checkbox"
+                        id={`column-${status}`}
+                        checked={!hiddenColumns.has(status)}
+                        onChange={(e) => {
+                          const newHidden = new Set(hiddenColumns)
+                          if (e.target.checked) {
+                            newHidden.delete(status)
+                          } else {
+                            newHidden.add(status)
+                          }
+                          setHiddenColumns(newHidden)
                         }}
-                        className="w-full flex items-center px-4 py-3 text-left hover:bg-gray-50 first:rounded-t-lg last:rounded-b-lg"
-                      >
-                        <Icon className="w-4 h-4 mr-3" style={{ color: config.color }} />
-                        <div>
-                          <div className="font-medium text-gray-900">
-                            New {config.name.slice(0, -1)}
-                          </div>
-                          <div className="text-xs text-gray-500">
-                            {config.description}
-                          </div>
-                        </div>
-                      </button>
-                    )
-                  })}
-                </div>
-              )}
-            </div>
+                        className="w-4 h-4"
+                      />
+                      <label htmlFor={`column-${status}`} className="text-sm cursor-pointer flex-1">
+                        {status}
+                      </label>
+                    </div>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+            
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button className="flex items-center gap-2">
+                  <Plus className="w-4 h-4" />
+                  Create New
+                  <ChevronDown className="w-4 h-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48">
+                {Object.entries(bucketConfig).map(([bucket, config]) => {
+                  const Icon = config.icon
+                  return (
+                    <DropdownMenuItem
+                      key={bucket}
+                      onClick={() => openAddPanel(bucket)}
+                      className="flex items-center p-3 cursor-pointer"
+                    >
+                      <Icon className="w-4 h-4 mr-3" style={{ color: config.color }} />
+                      <div className="font-medium text-gray-900">
+                        {config.name.slice(0, -1)}
+                      </div>
+                    </DropdownMenuItem>
+                  )
+                })}
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
 
         {/* Content */}
@@ -2473,108 +2569,94 @@ function App() {
         </div>
       </div>
 
-      {/* Overlay */}
-      {showPanel && (
-        <div 
-          className="fixed inset-0 bg-black bg-opacity-25 z-40"
-          onClick={() => closePanel()}
-        />
-      )}
+      <Sheet open={showPanel} onOpenChange={setShowPanel}>
+        <SheetContent className="w-[460px] sm:max-w-[460px]">
+          <SheetHeader>
+            <SheetTitle>
+              {panelMode === 'add' ? `Add new ${bucketConfig[panelBucket as keyof typeof bucketConfig]?.name.slice(0, -1).toLowerCase()}` : panelMode === 'edit' ? `Update ${bucketConfig[panelBucket as keyof typeof bucketConfig]?.name.slice(0, -1)}` : 'Custom Fields'}
+            </SheetTitle>
+            {panelMode === 'add' && (
+              <p className="text-sm text-gray-600 mt-2">
+                Create a new {bucketConfig[panelBucket as keyof typeof bucketConfig]?.description.toLowerCase()}
+              </p>
+            )}
+          </SheetHeader>
 
-      {/* Right Slide-out Panel */}
-      <div className={`fixed top-0 right-0 h-full w-[460px] bg-white border-l border-gray-200 shadow-xl transform transition-transform duration-300 z-50 ${
-        showPanel ? 'translate-x-0' : 'translate-x-full'
-      }`}>
-        <div className="flex flex-col h-full">
-          <div className="p-6">
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-gray-900">
-                {panelMode === 'add' ? 'Add New Item' : panelMode === 'edit' ? `Update ${bucketConfig[panelBucket as keyof typeof bucketConfig]?.name.slice(0, -1)}` : 'Custom Fields'}
-              </h2>
-              <button
-                onClick={() => closePanel()}
-                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-          </div>
-
-          <div className="flex-1 overflow-y-auto px-6 pt-2 pb-6">
+          <div className="flex-1 overflow-y-auto pt-6">
             {panelMode === 'fields' ? (
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <h3 className="font-medium">Custom Fields</h3>
-                  <button
+                  <Button
                     onClick={() => setShowAddField(true)}
-                    className="flex items-center px-2.5 py-1.5 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm transition-colors"
+                    size="sm"
+                    className="flex items-center gap-2"
                   >
-                    <Plus className="w-4 h-4 mr-1" />
+                    <Plus className="w-4 h-4" />
                     Add
-                  </button>
+                  </Button>
                 </div>
 
                 {showAddField && (
                   <div className="p-3 bg-gray-50 rounded-lg border space-y-3">
                     <div className="grid grid-cols-2 gap-3">
-                      <input
+                      <Input
                         type="text"
                         placeholder="Field name"
                         value={newField.name}
                         onChange={(e) => setNewField({...newField, name: e.target.value})}
-                        className="px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                       />
-                      <input
+                      <Input
                         type="text"
                         placeholder="Label (optional)"
                         value={newField.label}
                         onChange={(e) => setNewField({...newField, label: e.target.value})}
-                        className="px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                       />
                     </div>
                     
-                    <select
+                    <Select
                       value={newField.type}
-                      onChange={(e) => setNewField({...newField, type: e.target.value})}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      onValueChange={(value) => setNewField({...newField, type: value})}
                     >
-                      <option value="text">Text</option>
-                      <option value="email">Email</option>
-                      <option value="boolean">Boolean</option>
-                      <option value="date">Date</option>
-                      <option value="array">Array</option>
-                    </select>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select field type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="text">Text</SelectItem>
+                        <SelectItem value="url">URL</SelectItem>
+                        <SelectItem value="email">Email</SelectItem>
+                        <SelectItem value="boolean">Boolean</SelectItem>
+                        <SelectItem value="date">Date</SelectItem>
+                        <SelectItem value="array">Array</SelectItem>
+                      </SelectContent>
+                    </Select>
                     
-                    <input
+                    <Input
                       type="text"
                       placeholder="Description (optional)"
                       value={newField.description}
                       onChange={(e) => setNewField({...newField, description: e.target.value})}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     />
                     
                     {newField.type === 'array' && (
-                      <input
+                      <Input
                         type="text"
                         placeholder="Options (comma-separated)"
                         value={newField.arrayOptions}
                         onChange={(e) => setNewField({...newField, arrayOptions: e.target.value})}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                       />
                     )}
                     
                     <div className="flex items-center justify-between">
-                      <label className="flex items-center text-sm">
-                        <input
-                          type="checkbox"
+                      <label className="flex items-center text-sm gap-2">
+                        <Checkbox
                           checked={newField.required}
-                          onChange={(e) => setNewField({...newField, required: e.target.checked})}
-                          className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 mr-2"
+                          onCheckedChange={(checked) => setNewField({...newField, required: !!checked})}
                         />
                         Required
                       </label>
                       <div className="flex gap-2">
-                        <button
+                        <Button
                           onClick={editingField ? () => updateCustomField(editingField, {
                             name: newField.name.trim(),
                             label: newField.label.trim() || undefined,
@@ -2584,20 +2666,21 @@ function App() {
                             arrayOptions: newField.type === 'array' ? newField.arrayOptions.split(',').map(s => s.trim()).filter(s => s) : undefined,
                             multiSelect: newField.multiSelect
                           }) : createCustomField}
-                          className="px-3 py-1.5 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm transition-colors"
+                          size="sm"
                         >
                           {editingField ? 'Update' : 'Save'}
-                        </button>
-                        <button
+                        </Button>
+                        <Button
                           onClick={() => {
                             setShowAddField(false)
                             setEditingField(null)
                             setNewField({ name: '', label: '', description: '', type: 'text', defaultValue: '', arrayOptions: '', multiSelect: false, required: false })
                           }}
-                          className="px-3 py-1.5 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 text-sm transition-colors"
+                          variant="outline"
+                          size="sm"
                         >
                           Cancel
-                        </button>
+                        </Button>
                       </div>
                     </div>
                   </div>
@@ -2605,9 +2688,10 @@ function App() {
 
                 {/* Fields List */}
                 <div className="border border-gray-200 rounded-lg">
-                  <button
+                  <Button
                     onClick={() => setShowCustomFields(!showCustomFields)}
-                    className="flex items-center justify-between w-full p-3 text-left hover:bg-gray-50 transition-colors"
+                    variant="ghost"
+                    className="flex items-center justify-between w-full p-3 h-auto"
                   >
                     <div className="flex items-center gap-2">
                       <span className="font-medium text-gray-900">Custom Fields</span>
@@ -2618,13 +2702,13 @@ function App() {
                     ) : (
                       <ChevronRight className="w-4 h-4 text-gray-500" />
                     )}
-                  </button>
+                  </Button>
                   
                   {/* Search box - always visible */}
                   <div className="px-3 pb-3">
                     <div className="relative">
                       <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-                      <input
+                      <Input
                         type="text"
                         placeholder="Search custom fields..."
                         value={customFieldSearch}
@@ -2634,13 +2718,13 @@ function App() {
                             setShowCustomFields(true)
                           }
                         }}
-                        className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        className="pl-10"
                       />
                     </div>
                   </div>
                   
                   {(showCustomFields || customFieldSearch) && (
-                    <div className="border-t border-gray-200 p-3 space-y-2">
+                    <div className="border-t border-gray-200 p-3 space-y-2 max-h-96 overflow-y-auto">
                       {(() => {
                         const filteredFields = customFields.filter(field => 
                           !customFieldSearch || 
@@ -2658,25 +2742,26 @@ function App() {
                         }
                         
                         return filteredFields.map(field => (
-                        <div key={field.id} className="group border border-gray-200 rounded-lg p-3 hover:border-gray-300 transition-all">
-                          <div className="flex items-start justify-between mb-2">
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2 mb-1">
-                                <h4 className="font-medium text-gray-900 truncate">{field.label || field.name}</h4>
-                                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-700 shrink-0">
-                                  {field.type}
-                                </span>
-                              </div>
-                              {field.description && (
-                                <p className="text-xs text-gray-500 mb-2 line-clamp-2">{field.description}</p>
-                              )}
-                              {field.arrayOptions && (
-                                <div className="flex flex-wrap gap-1 mb-2">
-                                  {field.arrayOptions.slice(0, 3).map((option, idx) => (
-                                    <span key={idx} className="inline-flex items-center px-1.5 py-0.5 rounded text-xs bg-blue-50 text-blue-700">
-                                      {option}
-                                    </span>
-                                  ))}
+                        <Card key={field.id} className="group hover:border-gray-300 transition-all">
+                          <CardContent className="p-3">
+                            <div className="flex items-start justify-between mb-2">
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <h4 className="font-medium text-gray-900 truncate">{field.label || field.name}</h4>
+                                  <Badge variant="secondary" className="shrink-0">
+                                    {field.type}
+                                  </Badge>
+                                </div>
+                                {field.description && (
+                                  <p className="text-xs text-gray-500 mb-2 line-clamp-2">{field.description}</p>
+                                )}
+                                {field.arrayOptions && (
+                                  <div className="flex flex-wrap gap-1 mb-2">
+                                    {field.arrayOptions.slice(0, 3).map((option, idx) => (
+                                      <Badge key={idx} variant="outline" className="text-xs">
+                                        {option}
+                                      </Badge>
+                                    ))}
                                   {field.arrayOptions.length > 3 && (
                                     <span className="text-xs text-gray-400">+{field.arrayOptions.length - 3}</span>
                                   )}
@@ -2684,26 +2769,63 @@ function App() {
                               )}
                             </div>
                             {!predefinedFields.includes(field.name) && (
-                              <button
-                                onClick={() => {
-                                  setNewField({
-                                    name: field.name,
-                                    label: field.label || '',
-                                    description: field.description || '',
-                                    type: field.type,
-                                    defaultValue: field.defaultValue || '',
-                                    arrayOptions: field.arrayOptions?.join(', ') || '',
-                                    multiSelect: field.multiSelect || false,
-                                    required: false
-                                  })
-                                  setEditingField(field.id)
-                                  setShowAddField(true)
-                                }}
-                                className="opacity-0 group-hover:opacity-100 p-1 text-gray-400 hover:text-gray-600 transition-all"
-                                title="Edit field"
-                              >
-                                <Edit className="w-4 h-4" />
-                              </button>
+                              <div className="flex gap-1">
+                                <button
+                                  onClick={() => {
+                                    setNewField({
+                                      name: field.name,
+                                      label: field.label || '',
+                                      description: field.description || '',
+                                      type: field.type,
+                                      defaultValue: field.defaultValue || '',
+                                      arrayOptions: field.arrayOptions?.join(', ') || '',
+                                      multiSelect: field.multiSelect || false,
+                                      required: false
+                                    })
+                                    setEditingField(field.id)
+                                    setShowAddField(true)
+                                  }}
+                                  className="p-1 text-gray-600 hover:text-gray-800 transition-all"
+                                  title="Edit field"
+                                >
+                                  <Edit className="w-4 h-4" />
+                                </button>
+                                <button
+                                  onClick={async () => {
+                                    const itemsUsingField = items.filter(item => 
+                                      item.extraFields && field.name in item.extraFields
+                                    )
+                                    if (itemsUsingField.length === 0) {
+                                      if (confirm(`Delete field "${field.label || field.name}"?`)) {
+                                        try {
+                                          const response = await fetch(`/api/custom-fields/${field.id}`, {
+                                            method: 'DELETE'
+                                          })
+                                          if (response.ok) {
+                                            await loadCustomFields()
+                                            await loadBucketFields()
+                                          }
+                                        } catch (error) {
+                                          console.error('Failed to delete field:', error)
+                                        }
+                                      }
+                                    }
+                                  }}
+                                  disabled={items.some(item => item.extraFields && field.name in item.extraFields)}
+                                  className={`p-1 transition-all ${
+                                    items.some(item => item.extraFields && field.name in item.extraFields)
+                                      ? 'text-gray-300 cursor-not-allowed'
+                                      : 'text-gray-600 hover:text-red-600 cursor-pointer'
+                                  }`}
+                                  title={
+                                    items.some(item => item.extraFields && field.name in item.extraFields)
+                                      ? `Used by: ${items.filter(item => item.extraFields && field.name in item.extraFields).map(item => item.title).join(', ')}`
+                                      : 'Delete field'
+                                  }
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              </div>
                             )}
                           </div>
                           
@@ -2768,7 +2890,8 @@ function App() {
                               })}
                             </div>
                           </div>
-                        </div>
+                          </CardContent>
+                        </Card>
                       ))
                       })()}
                     </div>
@@ -2782,7 +2905,7 @@ function App() {
                     <label className="text-sm font-medium text-gray-700 w-20 flex-shrink-0 text-left">
                       Title
                     </label>
-                    <input
+                    <Input
                       name="title"
                       type="text"
                       required
@@ -2792,7 +2915,7 @@ function App() {
                         autoSave('title', e.target.value)
                       }}
                       placeholder={`What ${bucketConfig[panelBucket as keyof typeof bucketConfig]?.name.slice(0, -1).toLowerCase()} are you ${panelMode === 'add' ? 'adding' : 'editing'}?`}
-                      className="w-4/5 px-2 py-1 border border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none"
+                      className="w-4/5"
                     />
                   </div>
 
@@ -2800,7 +2923,7 @@ function App() {
                     <label className="text-sm font-medium text-gray-700 w-20 flex-shrink-0 pt-2 text-left">
                       Description
                     </label>
-                    <textarea
+                    <Textarea
                       name="description"
                       rows={3}
                       value={formData.description || ''}
@@ -2809,7 +2932,7 @@ function App() {
                         autoSave('description', e.target.value)
                       }}
                       placeholder="Add details, context, or notes..."
-                      className="w-4/5 px-2 py-1 border border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none resize-none"
+                      className="w-4/5 resize-none"
                     />
                   </div>
 
@@ -2817,19 +2940,22 @@ function App() {
                     <label className="text-sm font-medium text-gray-700 w-20 flex-shrink-0 text-left">
                       Status
                     </label>
-                    <select
-                      name="status"
+                    <Select
                       value={formData.status}
-                      onChange={(e) => {
-                        setFormData({...formData, status: e.target.value})
-                        autoSave('status', e.target.value)
+                      onValueChange={(value) => {
+                        setFormData({...formData, status: value})
+                        autoSave('status', value)
                       }}
-                      className="w-4/5 px-2 py-1 border border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none"
                     >
-                      {(apiStatuses[panelBucket] || []).map(status => (
-                        <option key={status} value={status}>{status}</option>
-                      ))}
-                    </select>
+                      <SelectTrigger className="w-4/5">
+                        <SelectValue placeholder="Select status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {(apiStatuses[panelBucket] || []).map(status => (
+                          <SelectItem key={status} value={status}>{status}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
 
                   {/* Custom Fields */}
@@ -2862,6 +2988,33 @@ function App() {
                             }
                             autoSave(field.name, e.target.value)
                           }}
+                          className={`w-4/5 px-2 py-1 border rounded-lg focus:outline-none ${
+                            formErrors[field.name] 
+                              ? 'border-red-500 focus:border-red-500 bg-red-50' 
+                              : 'border-gray-300 focus:border-blue-500'
+                          }`}
+                        />
+                      )}
+                      {field.type === 'url' && (
+                        <input
+                          name={`custom_${field.name}`}
+                          type="url"
+                          required={field.required}
+                          value={currentEditItem?.extraFields?.[field.name] || field.defaultValue || ''}
+                          onChange={(e) => {
+                            setFormErrors(prev => ({...prev, [field.name]: false}))
+                            if (currentEditItem) {
+                              setCurrentEditItem({
+                                ...currentEditItem,
+                                extraFields: {
+                                  ...currentEditItem.extraFields,
+                                  [field.name]: e.target.value
+                                }
+                              })
+                            }
+                            autoSave(field.name, e.target.value)
+                          }}
+                          placeholder="https://example.com"
                           className={`w-4/5 px-2 py-1 border rounded-lg focus:outline-none ${
                             formErrors[field.name] 
                               ? 'border-red-500 focus:border-red-500 bg-red-50' 
@@ -3088,8 +3241,8 @@ function App() {
               </div>
             )}
           </div>
-        </div>
-      </div>
+        </SheetContent>
+      </Sheet>
       </div>
       </div>
       </SidebarInset>

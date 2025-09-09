@@ -2,7 +2,7 @@ import { pgTable, uuid, text, integer, timestamp, json, pgEnum, unique, boolean 
 import { relations } from 'drizzle-orm';
 
 export const bucketTypeEnum = pgEnum('bucket_type', ['PROJECT', 'AREA', 'RESOURCE', 'ARCHIVE', 'ACTION']);
-export const fieldTypeEnum = pgEnum('field_type', ['text', 'email', 'boolean', 'array', 'date', 'datetime']);
+export const fieldTypeEnum = pgEnum('field_type', ['text', 'email', 'boolean', 'array', 'date', 'datetime', 'url']);
 
 export const customFields = pgTable('custom_fields', {
   id: uuid('id').primaryKey().defaultRandom(),

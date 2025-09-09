@@ -145,6 +145,14 @@ export class PARAService {
     return result[0];
   }
 
+  async deleteCustomField(id: string): Promise<void> {
+    // First remove from bucket assignments
+    await this.db.delete(bucketFields).where(eq(bucketFields.fieldId, id));
+    
+    // Then delete the custom field
+    await this.db.delete(customFields).where(eq(customFields.id, id));
+  }
+
   async getBucketFields(bucket: BucketType): Promise<any[]> {
     return this.db.select({
       id: customFields.id,

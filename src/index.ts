@@ -161,6 +161,20 @@ const server = createServer(async (req, res) => {
     return;
   }
 
+  if (method === 'DELETE' && pathname.startsWith('/api/custom-fields/')) {
+    try {
+      const fieldId = pathname.split('/')[3];
+      await service.deleteCustomField(fieldId);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: true }));
+    } catch (error) {
+      console.error('Error deleting custom field:', error);
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Failed to delete custom field' }));
+    }
+    return;
+  }
+
   // Bucket fields
   if (method === 'GET' && pathname.startsWith('/api/bucket-fields/')) {
     try {
