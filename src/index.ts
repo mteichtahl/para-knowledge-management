@@ -72,10 +72,10 @@ const server = createServer(async (req, res) => {
   if (method === 'POST' && pathname === '/api/items') {
     try {
       const itemData = JSON.parse(body);
-      // Map 'status' to 'statusName' for the service
+      // Handle both 'status' and 'statusName' fields
       const createInput = {
         ...itemData,
-        statusName: itemData.status
+        statusName: itemData.statusName || itemData.status
       };
       delete createInput.status; // Remove the original status field
       

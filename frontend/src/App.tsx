@@ -4,7 +4,7 @@ import { Calendar, momentLocalizer } from 'react-big-calendar'
 import moment from 'moment'
 import 'react-big-calendar/lib/css/react-big-calendar.css'
 import ForceGraph2D from 'react-force-graph-2d'
-import { Search, Plus, Settings, X, Target, Briefcase, BookOpen, Archive, CheckSquare, CheckCircle, Link, ChevronDown, ChevronRight, Edit, Trash2, Menu, AlertTriangle, Zap, CalendarDays, MessageSquare } from 'lucide-react'
+import { Search, Plus, Settings, X, Target, Briefcase, BookOpen, Archive, CheckSquare, CheckCircle, Link, ChevronDown, ChevronRight, Edit, Trash2, Menu, AlertTriangle, Zap, CalendarDays, MessageSquare, Clock } from 'lucide-react'
 import { type ColumnDef } from '@tanstack/react-table'
 import { DataTable } from './components/DataTable'
 import { Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarHeader, SidebarInset, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarProvider, SidebarTrigger } from './components/ui/sidebar'
@@ -440,7 +440,7 @@ function App() {
   const [calendarView, setCalendarView] = useState<'month' | 'week' | 'day' | 'quarter'>('month')
   const [bucketFields, setBucketFields] = useState<Record<string, CustomField[]>>({})
   const [apiStatuses, setApiStatuses] = useState<Record<string, string[]>>({})
-  const [formData, setFormData] = useState<{status: string, priority?: string, energy?: string, title?: string, description?: string}>({status: "Next Up"})
+  const [formData, setFormData] = useState<{status: string, priority?: string, energy?: string, title?: string, description?: string, extraFields?: Record<string, any>}>({status: "Next Up"})
   const [showPanel, setShowPanel] = useState(false)
   const [panelMode, setPanelMode] = useState<'add' | 'edit' | 'fields'>('add')
   const [panelBucket, setPanelBucket] = useState<string>('PROJECT')
@@ -610,12 +610,28 @@ function App() {
       console.error('Failed to load custom fields:', error)
     }
   }
+  const isItemOverdue = (item: Item) => {
+    if (!item.extraFields?.endDate) return false
+    const excludedStatuses = ['Wont Do', 'Completed', 'On Hold']
+    if (excludedStatuses.includes(item.status || '')) return false
+    const endDate = new Date(item.extraFields.endDate)
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    return endDate <= today
+  }
 
   const openAddPanel = (bucket: string) => {
     setPanelMode('add')
     setPanelBucket(bucket)
     setCurrentEditItem(null)
     setSelectedRelationships([])
+    setFormData({
+      status: "Next Up",
+      extraFields: {
+        priority: "Medium",
+        energy: "Medium"
+      }
+    })
     setShowPanel(true)
     loadAvailableItems()
   }
@@ -1189,11 +1205,7 @@ function App() {
             if (fieldName === 'priority') {
               return (
                 <span 
-                  className={`inline-flex items-center px-2 py-1 text-xs rounded-full cursor-pointer hover:opacity-80 ${
-                  value.toLowerCase() === 'high' ? 'bg-red-100 text-red-700' :
-                  value.toLowerCase() === 'medium' ? 'bg-yellow-100 text-yellow-700' :
-                  'bg-green-100 text-green-700'
-                }`}
+                  className="cursor-pointer hover:opacity-80 text-gray-700"
                   onClick={(e) => {
                     e.stopPropagation()
                     setEditingCell({itemId: row.original.id, field: fieldName})
@@ -1513,8 +1525,34 @@ function App() {
                     onClick={() => openEditPanel(item)}
                     className="cursor-pointer hover:shadow-md transition-shadow"
                   >
-                    <CardContent className="p-3">
-                      <CardTitle className="text-sm font-medium text-gray-900 mb-1 text-left">{item.title}</CardTitle>
+                    <CardContent className="p-3 relative">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setSelectedItemForNotes(item.id)
+                          loadNotes(item.id)
+                          setShowNotesPanel(true)
+                        }}
+                        className="absolute top-2 right-2 p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded transition-colors flex items-center gap-1"
+                        title="View notes"
+                      >
+                        <MessageSquare className="w-3 h-3" />
+                        {notesCounts[item.id] > 0 && (
+                          <span className="text-[10px] text-gray-600">
+                            {notesCounts[item.id]}
+                          </span>
+                        )}
+                      </button>
+                      <CardTitle className="text-sm font-medium text-gray-900 mb-1 text-left flex items-center gap-1">
+                        {item.title}
+                        {isItemOverdue(item) && (
+                          <div className="relative w-4 h-4">
+                            <div className="w-4 h-4 bg-red-500 rounded-full flex items-center justify-center">
+                              <Clock className="w-2.5 h-2.5 text-white" />
+                            </div>
+                          </div>
+                        )}
+                      </CardTitle>
                       {(item.extraFields?.startDate || item.extraFields?.endDate) && (
                         <div className="text-xs text-gray-500 mb-2 flex items-center gap-1">
                           <CalendarDays className="w-3 h-3" />
@@ -2046,7 +2084,16 @@ function App() {
                       onClick={() => openEditPanel(item)}
                     >
                       <CardContent className="p-3">
-                        <CardTitle className="text-sm font-medium text-gray-900 mb-1 text-left">{item.title}</CardTitle>
+                        <CardTitle className="text-sm font-medium text-gray-900 mb-1 text-left flex items-center gap-1">
+                          {item.title}
+                          {isItemOverdue(item) && (
+                            <div className="relative w-4 h-4">
+                              <div className="w-4 h-4 bg-red-500 rounded-full flex items-center justify-center">
+                                <Clock className="w-2.5 h-2.5 text-white" />
+                              </div>
+                            </div>
+                          )}
+                        </CardTitle>
                         {(item.extraFields?.startDate || item.extraFields?.endDate) && (
                           <div className="text-xs text-gray-500 mb-2 flex items-center gap-1">
                             <CalendarDays className="w-3 h-3" />
@@ -2259,7 +2306,16 @@ function App() {
                               </span>
                             )}
                           </button>
-                          <CardTitle className="text-sm font-medium text-gray-900 mb-1 text-left pr-8">{item.title}</CardTitle>
+                          <CardTitle className="text-sm font-medium text-gray-900 mb-1 text-left pr-8 flex items-center gap-1">
+                            {item.title}
+                            {isItemOverdue(item) && (
+                              <div className="relative w-4 h-4">
+                                <div className="w-4 h-4 bg-red-500 rounded-full flex items-center justify-center">
+                                  <Clock className="w-2.5 h-2.5 text-white" />
+                                </div>
+                              </div>
+                            )}
+                          </CardTitle>
                           {(item.extraFields?.startDate || item.extraFields?.endDate) && (
                             <div className="text-xs text-gray-500 mb-2 flex items-center gap-1">
                               <CalendarDays className="w-3 h-3" />
@@ -2444,9 +2500,14 @@ function App() {
   }
 
   const createItem = async (bucket: string, title: string, description: string, status: string, extraFields: Record<string, any>) => {
-    if (!title.trim()) return
+    console.log('createItem called with:', { bucket, title, description, status, extraFields })
+    if (!title.trim()) {
+      console.log('Title is empty, returning')
+      return
+    }
 
     try {
+      console.log('Making fetch request to /api/items')
       const response = await fetch('/api/items', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -2459,10 +2520,18 @@ function App() {
         })
       })
 
+      console.log('Response status:', response.status)
+      console.log('Response ok:', response.ok)
+
       if (response.ok) {
         const newItem = await response.json()
+        console.log('New item created:', newItem)
         loadItems()
         return newItem
+      } else {
+        console.error('Response not ok:', response.status, response.statusText)
+        const errorText = await response.text()
+        console.error('Error response:', errorText)
       }
     } catch (error) {
       console.error('Failed to create item:', error)
@@ -3230,20 +3299,32 @@ function App() {
                           name={`custom_${field.name}`}
                           type="date"
                           required={field.required}
-                          value={currentEditItem?.extraFields?.[field.name] || field.defaultValue || ''}
+                          value={panelMode === 'add' ? (formData.extraFields?.[field.name] || field.defaultValue || '') : (currentEditItem?.extraFields?.[field.name] || field.defaultValue || '')}
                           onChange={(e) => {
                             setFormErrors(prev => ({...prev, [field.name]: false}))
-                            // Update the current edit item state immediately
-                            if (currentEditItem) {
-                              setCurrentEditItem({
-                                ...currentEditItem,
+                            
+                            if (panelMode === 'add') {
+                              // For new items, update formData
+                              setFormData(prev => ({
+                                ...prev,
                                 extraFields: {
-                                  ...currentEditItem.extraFields,
+                                  ...prev.extraFields,
                                   [field.name]: e.target.value
                                 }
-                              })
+                              }))
+                            } else {
+                              // For editing, update currentEditItem
+                              if (currentEditItem) {
+                                setCurrentEditItem({
+                                  ...currentEditItem,
+                                  extraFields: {
+                                    ...currentEditItem.extraFields,
+                                    [field.name]: e.target.value
+                                  }
+                                })
+                              }
+                              autoSave(field.name, e.target.value)
                             }
-                            autoSave(field.name, e.target.value)
                           }}
                           className={`w-4/5 px-2 py-1 border rounded-lg focus:outline-none ${
                             formErrors[field.name] 
@@ -3257,17 +3338,40 @@ function App() {
                           name={`custom_${field.name}`}
                           multiple={field.multiSelect}
                           required={field.required}
-                          value={field.name === 'priority' ? (formData.priority || '') : 
-                                 field.name === 'energy' ? (formData.energy || '') :
-                                 (currentEditItem?.extraFields?.[field.name] || field.defaultValue || (field.multiSelect ? [] : ''))}
+                          value={field.name === 'priority' ? (formData.extraFields?.priority || 'Medium') : 
+                                 field.name === 'energy' ? (formData.extraFields?.energy || 'Medium') :
+                                 (panelMode === 'add' ? (formData.extraFields?.[field.name] || field.defaultValue || (field.multiSelect ? [] : '')) : (currentEditItem?.extraFields?.[field.name] || field.defaultValue || (field.multiSelect ? [] : '')))}
                           onChange={(e) => {
                             setFormErrors(prev => ({...prev, [field.name]: false}))
                             if (field.name === 'priority') {
-                              setFormData(prev => ({...prev, priority: e.target.value}))
+                              setFormData(prev => ({
+                                ...prev, 
+                                priority: e.target.value,
+                                extraFields: {
+                                  ...prev.extraFields,
+                                  priority: e.target.value
+                                }
+                              }))
                               autoSave('priority', e.target.value)
                             } else if (field.name === 'energy') {
-                              setFormData(prev => ({...prev, energy: e.target.value}))
+                              setFormData(prev => ({
+                                ...prev, 
+                                energy: e.target.value,
+                                extraFields: {
+                                  ...prev.extraFields,
+                                  energy: e.target.value
+                                }
+                              }))
                               autoSave('energy', e.target.value)
+                            } else {
+                              setFormData(prev => ({
+                                ...prev, 
+                                extraFields: {
+                                  ...prev.extraFields,
+                                  [field.name]: e.target.value
+                                }
+                              }))
+                              autoSave(field.name, e.target.value)
                             }
                           }}
                           className={`w-4/5 px-2 py-1 border rounded-lg focus:outline-none ${
@@ -3417,6 +3521,44 @@ function App() {
                       )
                     })
                   })()}
+
+                  {/* Save button for new items */}
+                  {panelMode === 'add' && (
+                    <div className="flex justify-end pt-4 border-t">
+                      <Button 
+                        onClick={async () => {
+                          console.log('Create button clicked')
+                          console.log('Current formData:', JSON.stringify(formData, null, 2))
+                          console.log('extraFields being sent:', JSON.stringify(formData.extraFields || {}, null, 2))
+                          
+                          if (!formData.title?.trim()) {
+                            console.log('No title provided')
+                            return
+                          }
+                          
+                          const newItem = await createItem(
+                            panelBucket,
+                            formData.title,
+                            formData.description || '',
+                            formData.status || 'Planning',
+                            formData.extraFields || {}
+                          )
+                          
+                          console.log('createItem returned:', newItem)
+                          
+                          if (newItem) {
+                            setShowPanel(false)
+                            setFormData({status: "Next Up"})
+                          }
+                        }}
+                        disabled={!formData.title?.trim()}
+                        className="flex items-center gap-2"
+                      >
+                        <Plus className="w-4 h-4" />
+                        Create {bucketConfig[panelBucket as keyof typeof bucketConfig]?.name.slice(0, -1)}
+                      </Button>
+                    </div>
+                  )}
 
                 </div>
               </div>
