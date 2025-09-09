@@ -2,6 +2,7 @@ import { createServer } from 'http';
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import { PARAService } from './service';
+import { BedrockService } from './bedrock-service';
 import { BucketType } from './types';
 
 const service = new PARAService();
@@ -338,6 +339,49 @@ const server = createServer(async (req, res) => {
       console.error('Error deleting note:', error);
       res.writeHead(500, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: 'Failed to delete note' }));
+    }
+    return;
+  }
+
+  // AI Summary endpoint
+  if (method === 'POST' && pathname === '/api/summary') {
+    try {
+      const bedrockService = new BedrockService();
+      
+      // Gather all system content
+      const items = await service.getAllItems();
+      const allNotes = await service.getAllNotes();
+      
+      const content = `
+PROJECTS: ${items.filter(i => i.bucket === 'PROJECT').map(i => `${i.title}: ${i.description || 'No description'}`).join('\n')}
+
+AREAS: ${items.filter(i => i.bucket === 'AREA').map(i => `${i.title}: ${i.description || 'No description'}`).join('\n')}
+
+RESOURCES: ${items.filter(i => i.bucket === 'RESOURCE').map(i => `${i.title}: ${i.description || 'No description'}`).join('\n')}
+
+ARCHIVES: ${items.filter(i => i.bucket === 'ARCHIVE').map(i => `${i.title}: ${i.description || 'No description'}`).join('\n')}
+
+ACTIONS: ${items.filter(i => i.bucket === 'ACTION').map(i => `${i.title}: ${i.description || 'No description'}`).join('\n')}
+
+NOTES: ${allNotes.map(n => n.content).join('\n')}
+      `.trim();
+
+      res.writeHead(200, {
+        'Content-Type': 'text/plain',
+        'Transfer-Encoding': 'chunked',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive'
+      });
+
+      for await (const chunk of bedrockService.streamSummary(content)) {
+        res.write(chunk);
+      }
+      
+      res.end();
+    } catch (error) {
+      console.error('Error generating summary:', error);
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Failed to generate summary' }));
     }
     return;
   }

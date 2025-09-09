@@ -260,4 +260,8 @@ export class PARAService {
   async deleteNote(noteId: string) {
     await this.db.delete(notes).where(eq(notes.id, noteId));
   }
+
+  async getAllNotes() {
+    return await this.db.select().from(notes);
+  }
 }

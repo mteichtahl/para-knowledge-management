@@ -474,6 +474,9 @@ function App() {
   const [selectedItemForNotes, setSelectedItemForNotes] = useState<string | null>(null)
   const [newNote, setNewNote] = useState('')
   const [editingNote, setEditingNote] = useState<{id: string, content: string} | null>(null)
+  const [systemSummary, setSystemSummary] = useState<string>('')
+  const [loadingSummary, setLoadingSummary] = useState(false)
+  const [showSummaryPanel, setShowSummaryPanel] = useState(false)
   const [newField, setNewField] = useState({
     name: '',
     label: '',
@@ -2251,7 +2254,7 @@ function App() {
                           >
                             <MessageSquare className="w-3 h-3" />
                             {notesCounts[item.id] > 0 && (
-                              <span className="text-[10px] bg-black text-white rounded-full px-1 min-w-[16px] h-4 flex items-center justify-center">
+                              <span className="text-[10px] text-gray-600">
                                 {notesCounts[item.id]}
                               </span>
                             )}
@@ -2296,6 +2299,38 @@ function App() {
         })}
       </div>
     )
+  }
+
+  const generateSummary = async () => {
+    setLoadingSummary(true)
+    setSystemSummary('')
+    setShowSummaryPanel(true)
+    
+    try {
+      const response = await fetch('/api/summary', { method: 'POST' })
+      
+      if (!response.ok) {
+        throw new Error('Failed to generate summary')
+      }
+
+      const reader = response.body?.getReader()
+      const decoder = new TextDecoder()
+
+      if (reader) {
+        while (true) {
+          const { done, value } = await reader.read()
+          if (done) break
+          
+          const chunk = decoder.decode(value, { stream: true })
+          setSystemSummary(prev => prev + chunk)
+        }
+      }
+    } catch (error) {
+      console.error('Failed to generate summary:', error)
+      setSystemSummary('Error generating summary. Please try again.')
+    } finally {
+      setLoadingSummary(false)
+    }
   }
 
   const loadNotesCounts = async (itemsList: Item[]) => {
@@ -2554,6 +2589,9 @@ function App() {
               </SidebarGroupContent>
             </SidebarGroup>
           </SidebarContent>
+          <SidebarFooter>
+            <ThemeToggle />
+          </SidebarFooter>
         </Sidebar>
         
         <SidebarInset>
@@ -2576,7 +2614,15 @@ function App() {
             </div>
             
             <div className="ml-auto flex items-center gap-2">
-              <ThemeToggle />
+              <Button 
+                onClick={generateSummary}
+                disabled={loadingSummary}
+                variant="ghost"
+                size="sm"
+                className="flex items-center gap-2"
+              >
+                {loadingSummary ? 'Generating...' : 'AI Summary'}
+              </Button>
               <Button 
                 onClick={openFieldsPanel}
                 variant="ghost"
@@ -3475,6 +3521,24 @@ function App() {
                 ))
               )}
             </div>
+          </div>
+        </SheetContent>
+      </Sheet>
+
+      {/* AI Summary Panel */}
+      <Sheet open={showSummaryPanel} onOpenChange={setShowSummaryPanel}>
+        <SheetContent className="w-[600px] max-w-[90vw] flex flex-col">
+          <SheetHeader>
+            <SheetTitle>AI System Summary</SheetTitle>
+          </SheetHeader>
+          <div className="mt-6 flex-1 overflow-y-auto">
+            {systemSummary ? (
+              <div className="prose prose-sm max-w-none">
+                <ReactMarkdown>{systemSummary}</ReactMarkdown>
+              </div>
+            ) : (
+              <p className="text-gray-500">No summary generated yet.</p>
+            )}
           </div>
         </SheetContent>
       </Sheet>

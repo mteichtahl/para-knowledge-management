@@ -21,8 +21,11 @@ services:
     environment:
       DATABASE_URL: postgresql://para_user:para_password@postgres:5432/para_db
       NODE_ENV: production
+      AWS_REGION: us-east-1
     ports:
       - "3002:3000"
+    volumes:
+      - ~/.aws:/root/.aws:ro
     depends_on:
       postgres:
         condition: service_healthy
