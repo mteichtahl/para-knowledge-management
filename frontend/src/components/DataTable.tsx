@@ -48,6 +48,24 @@ export function DataTable<TData, TValue>({
   const [statusFilter, setStatusFilter] = React.useState<string[]>([])
   const [energyFilter, setEnergyFilter] = React.useState<string[]>([])
   const [priorityFilter, setPriorityFilter] = React.useState<string[]>([])
+  const [bucketFilters, setBucketFilters] = React.useState<Record<string, string[]>>({
+    PROJECT: [],
+    AREA: [],
+    RESOURCE: [],
+    ACTION: [],
+    ARCHIVE: []
+  })
+
+  // Initialize current bucket filter with all items by default
+  React.useEffect(() => {
+    if (currentBucket && data.length > 0) {
+      const allItemIds = data.map((item: any) => item.id)
+      setBucketFilters(prev => ({
+        ...prev,
+        [currentBucket]: allItemIds
+      }))
+    }
+  }, [currentBucket, data])
   const [projectsFilter, setProjectsFilter] = React.useState<string[]>([])
   const [areasFilter, setAreasFilter] = React.useState<string[]>([])
   const [resourcesFilter, setResourcesFilter] = React.useState<string[]>([])
@@ -55,6 +73,7 @@ export function DataTable<TData, TValue>({
   const [showStatusDropdown, setShowStatusDropdown] = React.useState(false)
   const [showEnergyDropdown, setShowEnergyDropdown] = React.useState(false)
   const [showPriorityDropdown, setShowPriorityDropdown] = React.useState(false)
+  const [showCurrentBucketDropdown, setShowCurrentBucketDropdown] = React.useState(false)
   const [showProjectsDropdown, setShowProjectsDropdown] = React.useState(false)
   const [showAreasDropdown, setShowAreasDropdown] = React.useState(false)
   const [showResourcesDropdown, setShowResourcesDropdown] = React.useState(false)
@@ -136,6 +155,11 @@ export function DataTable<TData, TValue>({
       const energyMatch = energyFilter.length === 0 || energyFilter.includes(item.extraFields?.energy)
       const priorityMatch = priorityFilter.length === 0 || priorityFilter.includes(item.extraFields?.priority)
       
+      // Current bucket filter - if no items selected, show all; if items selected, only show selected
+      const currentBucketMatch = !currentBucket || 
+        bucketFilters[currentBucket]?.length === 0 || 
+        bucketFilters[currentBucket]?.includes(item.id)
+      
       // Check if item has relationships to selected bucket items
       const relationships = itemRelationships[item.id] || []
       const projectsMatch = projectsFilter.length === 0 || projectsFilter.some(projectId => 
@@ -151,9 +175,9 @@ export function DataTable<TData, TValue>({
         relationships.some(rel => rel.childId === actionId || rel.parentId === actionId)
       )
       
-      return statusMatch && energyMatch && priorityMatch && projectsMatch && areasMatch && resourcesMatch && actionsMatch
+      return statusMatch && energyMatch && priorityMatch && currentBucketMatch && projectsMatch && areasMatch && resourcesMatch && actionsMatch
     })
-  }, [data, statusFilter, energyFilter, priorityFilter, projectsFilter, areasFilter, resourcesFilter, actionsFilter, itemRelationships])
+  }, [data, statusFilter, energyFilter, priorityFilter, bucketFilters, currentBucket, projectsFilter, areasFilter, resourcesFilter, actionsFilter, itemRelationships])
 
   // Close dropdowns when clicking outside
   React.useEffect(() => {
@@ -163,6 +187,7 @@ export function DataTable<TData, TValue>({
         setShowStatusDropdown(false)
         setShowPriorityDropdown(false)
         setShowEnergyDropdown(false)
+        setShowCurrentBucketDropdown(false)
         setShowProjectsDropdown(false)
         setShowAreasDropdown(false)
         setShowResourcesDropdown(false)
@@ -204,6 +229,7 @@ export function DataTable<TData, TValue>({
           <button
             onClick={() => {
               setShowStatusDropdown(!showStatusDropdown)
+              setShowCurrentBucketDropdown(false)
               setShowProjectsDropdown(false)
               setShowAreasDropdown(false)
               setShowResourcesDropdown(false)
@@ -217,7 +243,24 @@ export function DataTable<TData, TValue>({
             <span className="text-xs">▼</span>
           </button>
           {showStatusDropdown && (
-            <div className="absolute top-full left-0 mt-1 bg-white border border-gray-300 rounded-md shadow-lg z-10 min-w-[150px]">
+            <div className="absolute top-full left-0 mt-1 bg-white border border-gray-300 rounded-md shadow-lg z-10 min-w-[200px]">
+              <div className="px-3 py-2 text-xs text-gray-500 border-b flex justify-between items-center">
+                <span>{statusOptions.length} options</span>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setStatusFilter([...statusOptions])}
+                    className="text-blue-600 hover:text-blue-800 text-xs"
+                  >
+                    Select All
+                  </button>
+                  <button
+                    onClick={() => setStatusFilter([])}
+                    className="text-red-600 hover:text-red-800 text-xs"
+                  >
+                    Clear All
+                  </button>
+                </div>
+              </div>
               {statusOptions.map(status => (
                 <label key={status} className="flex items-center px-3 py-2 hover:bg-gray-50 cursor-pointer">
                   <input
@@ -243,6 +286,7 @@ export function DataTable<TData, TValue>({
           <button
             onClick={() => {
               setShowPriorityDropdown(!showPriorityDropdown)
+              setShowCurrentBucketDropdown(false)
               setShowProjectsDropdown(false)
               setShowAreasDropdown(false)
               setShowResourcesDropdown(false)
@@ -256,7 +300,24 @@ export function DataTable<TData, TValue>({
             <span className="text-xs">▼</span>
           </button>
           {showPriorityDropdown && (
-            <div className="absolute top-full left-0 mt-1 bg-white border border-gray-300 rounded-md shadow-lg z-10 min-w-[150px]">
+            <div className="absolute top-full left-0 mt-1 bg-white border border-gray-300 rounded-md shadow-lg z-10 min-w-[200px]">
+              <div className="px-3 py-2 text-xs text-gray-500 border-b flex justify-between items-center">
+                <span>{priorityOptions.length} options</span>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setPriorityFilter([...priorityOptions])}
+                    className="text-blue-600 hover:text-blue-800 text-xs"
+                  >
+                    Select All
+                  </button>
+                  <button
+                    onClick={() => setPriorityFilter([])}
+                    className="text-red-600 hover:text-red-800 text-xs"
+                  >
+                    Clear All
+                  </button>
+                </div>
+              </div>
               {priorityOptions.map(priority => (
                 <label key={priority} className="flex items-center px-3 py-2 hover:bg-gray-50 cursor-pointer">
                   <input
@@ -282,6 +343,7 @@ export function DataTable<TData, TValue>({
           <button
             onClick={() => {
               setShowEnergyDropdown(!showEnergyDropdown)
+              setShowCurrentBucketDropdown(false)
               setShowProjectsDropdown(false)
               setShowAreasDropdown(false)
               setShowResourcesDropdown(false)
@@ -295,7 +357,24 @@ export function DataTable<TData, TValue>({
             <span className="text-xs">▼</span>
           </button>
           {showEnergyDropdown && (
-            <div className="absolute top-full left-0 mt-1 bg-white border border-gray-300 rounded-md shadow-lg z-10 min-w-[150px]">
+            <div className="absolute top-full left-0 mt-1 bg-white border border-gray-300 rounded-md shadow-lg z-10 min-w-[200px]">
+              <div className="px-3 py-2 text-xs text-gray-500 border-b flex justify-between items-center">
+                <span>{energyOptions.length} options</span>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setEnergyFilter([...energyOptions])}
+                    className="text-blue-600 hover:text-blue-800 text-xs"
+                  >
+                    Select All
+                  </button>
+                  <button
+                    onClick={() => setEnergyFilter([])}
+                    className="text-red-600 hover:text-red-800 text-xs"
+                  >
+                    Clear All
+                  </button>
+                </div>
+              </div>
               {energyOptions.map(energy => (
                 <label key={energy} className="flex items-center px-3 py-2 hover:bg-gray-50 cursor-pointer">
                   <input
@@ -317,11 +396,95 @@ export function DataTable<TData, TValue>({
           )}
         </div>
 
+        {/* Current bucket filter */}
+        {currentBucket && (
+          <div className="relative filter-dropdown">
+            <button
+              onClick={() => {
+                setShowCurrentBucketDropdown(!showCurrentBucketDropdown)
+                setShowProjectsDropdown(false)
+                setShowAreasDropdown(false)
+                setShowResourcesDropdown(false)
+                setShowActionsDropdown(false)
+                setShowStatusDropdown(false)
+                setShowPriorityDropdown(false)
+                setShowEnergyDropdown(false)
+              }}
+              className="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white flex items-center gap-2"
+            >
+              {currentBucket === 'PROJECT' ? 'Projects' : 
+               currentBucket === 'AREA' ? 'Areas' :
+               currentBucket === 'RESOURCE' ? 'Resources' :
+               currentBucket === 'ACTION' ? 'Actions' :
+               currentBucket === 'ARCHIVE' ? 'Archives' : currentBucket} 
+              {bucketFilters[currentBucket]?.length > 0 && `(${bucketFilters[currentBucket].length})`}
+              <span className="text-xs">▼</span>
+            </button>
+            {showCurrentBucketDropdown && (
+              <div className="absolute top-full left-0 mt-1 bg-white border border-gray-300 rounded-md shadow-lg z-10 min-w-[200px] max-h-60 overflow-y-auto">
+                <div className="px-3 py-2 text-xs text-gray-500 border-b flex justify-between items-center">
+                  <span>{data.length} items</span>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => {
+                        const allItemIds = data.map((item: any) => item.id)
+                        setBucketFilters({
+                          ...bucketFilters,
+                          [currentBucket]: allItemIds
+                        })
+                      }}
+                      className="text-blue-600 hover:text-blue-800 text-xs"
+                    >
+                      Select All
+                    </button>
+                    <button
+                      onClick={() => {
+                        setBucketFilters({
+                          ...bucketFilters,
+                          [currentBucket]: []
+                        })
+                      }}
+                      className="text-red-600 hover:text-red-800 text-xs"
+                    >
+                      Clear All
+                    </button>
+                  </div>
+                </div>
+                {data.map((item: any) => (
+                  <label key={item.id} className="flex items-center px-3 py-2 hover:bg-gray-50 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={bucketFilters[currentBucket]?.includes(item.id) || false}
+                      onChange={(e) => {
+                        const currentFilter = bucketFilters[currentBucket] || []
+                        if (e.target.checked) {
+                          setBucketFilters({
+                            ...bucketFilters,
+                            [currentBucket]: [...currentFilter, item.id]
+                          })
+                        } else {
+                          setBucketFilters({
+                            ...bucketFilters,
+                            [currentBucket]: currentFilter.filter(id => id !== item.id)
+                          })
+                        }
+                      }}
+                      className="mr-2"
+                    />
+                    <span className="truncate">{item.title}</span>
+                  </label>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
         {currentBucket !== 'PROJECT' && (
           <div className="relative filter-dropdown">
             <button
               onClick={() => {
                 setShowProjectsDropdown(!showProjectsDropdown)
+                setShowCurrentBucketDropdown(false)
                 setShowAreasDropdown(false)
                 setShowResourcesDropdown(false)
                 setShowActionsDropdown(false)
@@ -336,8 +499,22 @@ export function DataTable<TData, TValue>({
             </button>
             {showProjectsDropdown && (
               <div className="absolute top-full left-0 mt-1 bg-white border border-gray-300 rounded-md shadow-lg z-10 min-w-[200px] max-h-60 overflow-y-auto">
-                <div className="px-3 py-2 text-xs text-gray-500 border-b">
-                  {projectsOptions.length} items
+                <div className="px-3 py-2 text-xs text-gray-500 border-b flex justify-between items-center">
+                  <span>{projectsOptions.length} items</span>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setProjectsFilter(projectsOptions.map(p => p.id))}
+                      className="text-blue-600 hover:text-blue-800 text-xs"
+                    >
+                      Select All
+                    </button>
+                    <button
+                      onClick={() => setProjectsFilter([])}
+                      className="text-red-600 hover:text-red-800 text-xs"
+                    >
+                      Clear All
+                    </button>
+                  </div>
                 </div>
                 {projectsOptions
                   .map(project => {
@@ -382,6 +559,7 @@ export function DataTable<TData, TValue>({
             <button
               onClick={() => {
                 setShowAreasDropdown(!showAreasDropdown)
+                setShowCurrentBucketDropdown(false)
                 setShowProjectsDropdown(false)
                 setShowResourcesDropdown(false)
                 setShowActionsDropdown(false)
@@ -396,8 +574,22 @@ export function DataTable<TData, TValue>({
             </button>
             {showAreasDropdown && (
               <div className="absolute top-full left-0 mt-1 bg-white border border-gray-300 rounded-md shadow-lg z-10 min-w-[200px] max-h-60 overflow-y-auto">
-                <div className="px-3 py-2 text-xs text-gray-500 border-b">
-                  {areasOptions.length} items
+                <div className="px-3 py-2 text-xs text-gray-500 border-b flex justify-between items-center">
+                  <span>{areasOptions.length} items</span>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setAreasFilter(areasOptions.map(a => a.id))}
+                      className="text-blue-600 hover:text-blue-800 text-xs"
+                    >
+                      Select All
+                    </button>
+                    <button
+                      onClick={() => setAreasFilter([])}
+                      className="text-red-600 hover:text-red-800 text-xs"
+                    >
+                      Clear All
+                    </button>
+                  </div>
                 </div>
                 {areasOptions
                   .map(area => {
@@ -442,6 +634,7 @@ export function DataTable<TData, TValue>({
             <button
               onClick={() => {
                 setShowResourcesDropdown(!showResourcesDropdown)
+                setShowCurrentBucketDropdown(false)
                 setShowProjectsDropdown(false)
                 setShowAreasDropdown(false)
                 setShowActionsDropdown(false)
@@ -456,8 +649,22 @@ export function DataTable<TData, TValue>({
             </button>
             {showResourcesDropdown && (
               <div className="absolute top-full left-0 mt-1 bg-white border border-gray-300 rounded-md shadow-lg z-10 min-w-[200px] max-h-60 overflow-y-auto">
-                <div className="px-3 py-2 text-xs text-gray-500 border-b">
-                  {resourcesOptions.length} items
+                <div className="px-3 py-2 text-xs text-gray-500 border-b flex justify-between items-center">
+                  <span>{resourcesOptions.length} items</span>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setResourcesFilter(resourcesOptions.map(r => r.id))}
+                      className="text-blue-600 hover:text-blue-800 text-xs"
+                    >
+                      Select All
+                    </button>
+                    <button
+                      onClick={() => setResourcesFilter([])}
+                      className="text-red-600 hover:text-red-800 text-xs"
+                    >
+                      Clear All
+                    </button>
+                  </div>
                 </div>
                 {resourcesOptions
                   .map(resource => {
@@ -502,6 +709,7 @@ export function DataTable<TData, TValue>({
             <button
               onClick={() => {
                 setShowActionsDropdown(!showActionsDropdown)
+                setShowCurrentBucketDropdown(false)
                 setShowProjectsDropdown(false)
                 setShowAreasDropdown(false)
                 setShowResourcesDropdown(false)
@@ -516,8 +724,22 @@ export function DataTable<TData, TValue>({
             </button>
             {showActionsDropdown && (
               <div className="absolute top-full left-0 mt-1 bg-white border border-gray-300 rounded-md shadow-lg z-10 min-w-[200px] max-h-60 overflow-y-auto">
-                <div className="px-3 py-2 text-xs text-gray-500 border-b">
-                  {actionsOptions.length} items
+                <div className="px-3 py-2 text-xs text-gray-500 border-b flex justify-between items-center">
+                  <span>{actionsOptions.length} items</span>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setActionsFilter(actionsOptions.map(a => a.id))}
+                      className="text-blue-600 hover:text-blue-800 text-xs"
+                    >
+                      Select All
+                    </button>
+                    <button
+                      onClick={() => setActionsFilter([])}
+                      className="text-red-600 hover:text-red-800 text-xs"
+                    >
+                      Clear All
+                    </button>
+                  </div>
                 </div>
                 {actionsOptions
                   .map(action => {
@@ -589,7 +811,11 @@ export function DataTable<TData, TValue>({
               <TableRow key={headerGroup.id}>
                 {headerGroup.headers.map((header) => {
                   return (
-                    <TableHead key={header.id} className="min-w-[120px] font-bold">
+                    <TableHead 
+                      key={header.id} 
+                      className="font-bold"
+                      style={{ width: header.getSize() !== 150 ? `${header.getSize()}px` : 'auto', minWidth: header.getSize() !== 150 ? `${header.getSize()}px` : '120px' }}
+                    >
                       {header.isPlaceholder ? null : (
                         <div
                           className={header.column.getCanSort() ? "cursor-pointer select-none flex items-center gap-1" : "flex items-center gap-1"}
@@ -661,7 +887,10 @@ export function DataTable<TData, TValue>({
                   onClick={() => onRowClick?.(row.original)}
                 >
                   {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id} className="min-w-[120px]">
+                    <TableCell 
+                      key={cell.id} 
+                      style={{ width: cell.column.getSize() !== 150 ? `${cell.column.getSize()}px` : 'auto', minWidth: cell.column.getSize() !== 150 ? `${cell.column.getSize()}px` : '120px' }}
+                    >
                       {flexRender(cell.column.columnDef.cell, cell.getContext())}
                     </TableCell>
                   ))}

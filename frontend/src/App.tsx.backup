@@ -1,5 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react'
-import * as d3 from 'd3'
+import React, { useState, useEffect } from 'react'
 import { Calendar, momentLocalizer } from 'react-big-calendar'
 import moment from 'moment'
 import 'react-big-calendar/lib/css/react-big-calendar.css'
@@ -78,353 +77,10 @@ const statuses = {
   ACTION: ['Next Up', 'Doing', 'In Review', 'On Hold', 'Wont Do', 'Completed']
 }
 
-const D3NetworkGraph: React.FC<{ items: Item[], itemRelationships: Record<string, any[]>, bucketConfig: any }> = ({ items, itemRelationships, bucketConfig }) => {
-  const graphRef = useRef<HTMLDivElement>(null)
-  const [visibleBuckets, setVisibleBuckets] = useState<Set<string>>(new Set(['PROJECT', 'AREA', 'RESOURCE', 'ARCHIVE', 'ACTION']))
-  const [dropdownOpen, setDropdownOpen] = useState(false)
-  const [searchQuery, setSearchQuery] = useState('')
-  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('')
-  
-  const bucketColors = {
-    'PROJECT': '#3b82f6',
-    'AREA': '#10b981', 
-    'RESOURCE': '#f59e0b',
-    'ARCHIVE': '#6b7280',
-    'ACTION': '#ef4444'
-  }
-
-  // Debounce search query
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setDebouncedSearchQuery(searchQuery)
-    }, 300)
-    
-    return () => clearTimeout(timer)
-  }, [searchQuery])
-
-  const toggleBucket = (bucket: string) => {
-    const newVisible = new Set(visibleBuckets)
-    if (newVisible.has(bucket)) {
-      newVisible.delete(bucket)
-    } else {
-      newVisible.add(bucket)
-    }
-    setVisibleBuckets(newVisible)
-  }
-  
-  useEffect(() => {
-    if (!graphRef.current) return
-    
-    // Clear previous graph
-    d3.select(graphRef.current).selectAll("*").remove()
-    
-    // Filter items by visible buckets first
-    let filteredItems = items.filter(item => visibleBuckets.has(item.bucket))
-    
-    // If there's a search query, find matching items and their connections
-    if (debouncedSearchQuery.trim()) {
-      const matchingItems = filteredItems.filter(item => 
-        item.title.toLowerCase().includes(debouncedSearchQuery.toLowerCase())
-      )
-      
-      // Get all connected item IDs
-      const connectedItemIds = new Set(matchingItems.map(item => item.id))
-      
-      // Add all items connected to matching items
-      Object.entries(itemRelationships).forEach(([itemId, relationships]) => {
-        relationships.forEach(rel => {
-          if (connectedItemIds.has(rel.parentId)) {
-            connectedItemIds.add(rel.childId)
-          }
-          if (connectedItemIds.has(rel.childId)) {
-            connectedItemIds.add(rel.parentId)
-          }
-        })
-      })
-      
-      // Filter to only show matching items and their connections
-      filteredItems = filteredItems.filter(item => connectedItemIds.has(item.id))
-    }
-    
-    const filteredItemIds = new Set(filteredItems.map(item => item.id))
-    
-    // Prepare data
-    const nodes = filteredItems.map(item => ({
-      id: item.id,
-      title: item.title,
-      bucket: item.bucket,
-      status: item.status,
-      color: bucketColors[item.bucket as keyof typeof bucketColors] || '#6b7280'
-    }))
-    
-    const links: any[] = []
-    Object.entries(itemRelationships).forEach(([itemId, relationships]) => {
-      relationships.forEach(rel => {
-        // Only include links where both nodes are visible
-        if (filteredItemIds.has(rel.parentId) && filteredItemIds.has(rel.childId)) {
-          links.push({
-            source: rel.parentId,
-            target: rel.childId,
-            relationship: rel.relationship
-          })
-        }
-      })
-    })
-    
-    // Create SVG
-    const width = 1200
-    const height = 800
-    const svg = d3.select(graphRef.current)
-      .append("svg")
-      .attr("width", width)
-      .attr("height", height)
-      .style("background", "#f8f9fa")
-    
-    // Add zoom and pan behavior
-    const g = svg.append("g")
-    
-    svg.call(d3.zoom()
-      .extent([[0, 0], [width, height]])
-      .scaleExtent([0.1, 8])
-      .on("zoom", (event) => {
-        g.attr("transform", event.transform)
-      }))
-    
-    // Add arrow marker
-    g.append("defs").selectAll("marker")
-      .data(["end"])
-      .enter().append("marker")
-      .attr("id", String)
-      .attr("viewBox", "0 -5 10 10")
-      .attr("refX", 15)
-      .attr("refY", -1.5)
-      .attr("markerWidth", 6)
-      .attr("markerHeight", 6)
-      .attr("orient", "auto")
-      .append("path")
-      .attr("d", "M0,-5L10,0L0,5")
-      .attr("fill", "#999")
-    
-    // Create force simulation
-    const simulation = d3.forceSimulation(nodes)
-      .force("link", d3.forceLink(links).id((d: any) => d.id).distance(150))
-      .force("charge", d3.forceManyBody().strength(-400))
-      .force("center", d3.forceCenter(width / 2, height / 2))
-    
-    // Create curved links
-    const link = g.append("g")
-      .attr("class", "links")
-      .selectAll("path")
-      .data(links)
-      .enter().append("path")
-      .attr("fill", "none")
-      .attr("stroke", "#999")
-      .attr("stroke-opacity", 0.6)
-      .attr("stroke-width", 1.5)
-      .attr("marker-end", "url(#end)")
-    
-    // Create nodes
-    const node = g.append("g")
-      .attr("class", "nodes")
-      .selectAll("g")
-      .data(nodes)
-      .enter().append("g")
-      .call(d3.drag()
-        .on("start", (event, d: any) => {
-          if (!event.active) simulation.alphaTarget(0.3).restart()
-          d.fx = d.x
-          d.fy = d.y
-        })
-        .on("drag", (event, d: any) => {
-          d.fx = event.x
-          d.fy = event.y
-        })
-        .on("end", (event, d: any) => {
-          if (!event.active) simulation.alphaTarget(0)
-          d.fx = null
-          d.fy = null
-        }))
-      .on("click", (event, d: any) => {
-        // Get connected node IDs
-        const connectedNodes = new Set([d.id])
-        links.forEach((link: any) => {
-          if (link.source.id === d.id) connectedNodes.add(link.target.id)
-          if (link.target.id === d.id) connectedNodes.add(link.source.id)
-        })
-        
-        // Update node opacity
-        node.select("circle")
-          .style("opacity", (n: any) => connectedNodes.has(n.id) ? 1 : 0.1)
-        
-        node.select("text")
-          .style("opacity", (n: any) => connectedNodes.has(n.id) ? 1 : 0.1)
-        
-        // Update link opacity
-        link.style("opacity", (l: any) => 
-          connectedNodes.has(l.source.id) && connectedNodes.has(l.target.id) ? 0.6 : 0.1
-        )
-      })
-      .on("mouseover", (event, d: any) => {
-        // Get connected links
-        const connectedLinks = links.filter((l: any) => 
-          l.source.id === d.id || l.target.id === d.id
-        )
-        
-        // Highlight connected links
-        link.style("stroke", (l: any) => 
-          connectedLinks.includes(l) ? "#000" : "#999"
-        )
-        .style("stroke-width", (l: any) => 
-          connectedLinks.includes(l) ? "4" : "1.5"
-        )
-        .style("opacity", (l: any) => 
-          connectedLinks.includes(l) ? 1 : 0.3
-        )
-        
-        // Add pulsing animation to connected links
-        link.filter((l: any) => connectedLinks.includes(l))
-          .style("animation", "pulse 1s infinite")
-      })
-      .on("mouseout", (event, d: any) => {
-        // Reset all links
-        link.style("stroke", "#999")
-          .style("stroke-width", "1.5")
-          .style("opacity", 0.6)
-          .style("animation", "none")
-      })
-    
-    // Add circles to nodes
-    node.append("circle")
-      .attr("r", 8)
-      .attr("fill", (d: any) => d.color)
-      .attr("stroke", "#fff")
-      .attr("stroke-width", 1.5)
-    
-    // Add labels to nodes
-    node.append("text")
-      .text((d: any) => d.title)
-      .attr("x", 12)
-      .attr("y", "0.31em")
-      .attr("font-family", "sans-serif")
-      .attr("font-size", 10)
-      .attr("fill", "#333")
-      .clone(true).lower()
-      .attr("fill", "none")
-      .attr("stroke", "white")
-      .attr("stroke-width", 3)
-    
-    // Double-click to reset
-    svg.on("dblclick", () => {
-      node.select("circle").style("opacity", 1)
-      node.select("text").style("opacity", 1)
-      link.style("opacity", 0.6)
-    })
-    
-    // Update positions on tick
-    simulation.on("tick", () => {
-      link.attr("d", (d: any) => {
-        const dx = d.target.x - d.source.x
-        const dy = d.target.y - d.source.y
-        const dr = Math.sqrt(dx * dx + dy * dy) * 2
-        return `M${d.source.x},${d.source.y}A${dr},${dr} 0 0,1 ${d.target.x},${d.target.y}`
-      })
-      
-      node.attr("transform", (d: any) => `translate(${d.x},${d.y})`)
-    })
-    
-    // Auto-fit view after simulation settles
-    simulation.on("end", () => {
-      if (nodes.length > 0) {
-        const bounds = {
-          minX: Math.min(...nodes.map(d => d.x)) - 50,
-          maxX: Math.max(...nodes.map(d => d.x)) + 50,
-          minY: Math.min(...nodes.map(d => d.y)) - 50,
-          maxY: Math.max(...nodes.map(d => d.y)) + 50
-        }
-        
-        const boundsWidth = bounds.maxX - bounds.minX
-        const boundsHeight = bounds.maxY - bounds.minY
-        const centerX = (bounds.minX + bounds.maxX) / 2
-        const centerY = (bounds.minY + bounds.maxY) / 2
-        
-        const scale = Math.min(width / boundsWidth, height / boundsHeight) * 0.9
-        const translateX = width / 2 - centerX * scale
-        const translateY = height / 2 - centerY * scale
-        
-        svg.transition()
-          .duration(750)
-          .call(
-            d3.zoom().transform,
-            d3.zoomIdentity.translate(translateX, translateY).scale(scale)
-          )
-      }
-    })
-    
-  }, [items, itemRelationships, bucketConfig, visibleBuckets, debouncedSearchQuery])
-
-  return (
-    <div className="w-full h-full relative">
-      <style>{`
-        @keyframes pulse {
-          0% { opacity: 1; }
-          50% { opacity: 0.4; }
-          100% { opacity: 1; }
-        }
-      `}</style>
-      
-      {/* Controls */}
-      <div className="absolute top-4 left-4 z-10 flex space-x-2">
-        {/* Search bar */}
-        <input
-          type="text"
-          placeholder="Search items..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="px-3 py-2 border rounded-lg shadow-sm text-sm w-64 focus:outline-none focus:ring-2 focus:ring-blue-500"
-        />
-        
-        {/* Filter dropdown */}
-        <div className="relative">
-          <button
-            onClick={() => setDropdownOpen(!dropdownOpen)}
-            className="px-4 py-2 bg-white border rounded-lg shadow-sm text-sm hover:bg-gray-50"
-          >
-            Filter Buckets ({visibleBuckets.size}/5) ▼
-          </button>
-          
-          {dropdownOpen && (
-            <div className="absolute top-full left-0 mt-1 bg-white border rounded-lg shadow-lg p-2 min-w-48">
-              {Object.entries(bucketColors).map(([bucket, color]) => (
-                <label key={bucket} className="flex items-center space-x-2 p-1 hover:bg-gray-50 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={visibleBuckets.has(bucket)}
-                    onChange={() => toggleBucket(bucket)}
-                    className="rounded"
-                  />
-                  <div 
-                    className="w-3 h-3 rounded-full"
-                    style={{ backgroundColor: color }}
-                  ></div>
-                  <span className="text-sm">{bucket}</span>
-                </label>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-      
-      <div ref={graphRef} className="w-full h-full"></div>
-    </div>
-  )
-}
-
 function App() {
   const [items, setItems] = useState<Item[]>([])
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedBucket, setSelectedBucket] = useState<string>('PROJECT')
-  const [editingCell, setEditingCell] = useState<{itemId: string, field: string} | null>(null)
-  const [editingValue, setEditingValue] = useState<Record<string, string>>({})
   const [calendarDate, setCalendarDate] = useState(new Date())
   const [calendarView, setCalendarView] = useState<'month' | 'week' | 'day' | 'quarter'>('month')
   const [bucketFields, setBucketFields] = useState<Record<string, CustomField[]>>({})
@@ -472,21 +128,6 @@ function App() {
     loadCustomFields()
     loadStatuses()
   }, [])
-
-  // Initialize editing value when editing starts
-  useEffect(() => {
-    if (editingCell) {
-      const editKey = `${editingCell.itemId}-${editingCell.field}`
-      if (!editingValue[editKey]) {
-        // Find the current value for this field
-        const item = items.find(i => i.id === editingCell.itemId)
-        if (item) {
-          const currentValue = item.extraFields?.[editingCell.field] || ''
-          setEditingValue(prev => ({ ...prev, [editKey]: currentValue }))
-        }
-      }
-    }
-  }, [editingCell, items])
 
   useEffect(() => {
     // Close dropdown when clicking outside
@@ -814,21 +455,7 @@ function App() {
       case 'date':
         return renderDateView(items)
       case 'graph':
-        return (
-          <div className="h-screen w-full bg-white p-8 overflow-auto">
-            {selectedGraphItem && (
-              <div className="mb-4">
-                <button
-                  onClick={() => setSelectedGraphItem(null)}
-                  className="px-4 py-2 bg-white hover:bg-gray-100 rounded-lg text-sm border shadow-sm"
-                >
-                  ← Show All Items
-                </button>
-              </div>
-            )}
-            <D3NetworkGraph items={items} itemRelationships={itemRelationships} bucketConfig={bucketConfig} />
-          </div>
-        )
+        return renderGraphView(items)
       case 'timeline':
         return renderTimelineView(items)
       case 'kanban':
@@ -857,69 +484,14 @@ function App() {
         header: "Status",
         cell: ({ row }) => {
           const status = row.getValue("status") as string
-          const isEditing = editingCell?.itemId === row.original.id && editingCell?.field === 'status'
-          
-          if (isEditing) {
-            const currentBucketStatuses = apiStatuses[selectedBucket] || []
-            // Add fallback statuses if none are loaded
-            const statusOptions = currentBucketStatuses.length > 0 ? currentBucketStatuses : 
-              ['Planning', 'In Progress', 'On Hold', 'Completed']
-            
-            return (
-              <div onClick={(e) => e.stopPropagation()}>
-                <select
-                  value={status || ''}
-                  onChange={async (e) => {
-                    e.stopPropagation()
-                    try {
-                      await updateItem(row.original.id, row.original.title, row.original.description, e.target.value, row.original.extraFields || {})
-                      setEditingCell(null)
-                      loadItems()
-                    } catch (error) {
-                      console.error('Failed to update status:', error)
-                      setEditingCell(null)
-                    }
-                  }}
-                  onBlur={(e) => {
-                    // Only close if not clicking on an option
-                    setTimeout(() => setEditingCell(null), 100)
-                  }}
-                  autoFocus
-                  className="px-2 py-1 text-xs border rounded"
-                >
-                  <option value="">Select status</option>
-                  {statusOptions.map(s => (
-                    <option key={s} value={s}>{s}</option>
-                  ))}
-                </select>
-              </div>
-            )
-          }
-          
           return status ? (
-            <div 
-              className="text-left cursor-pointer hover:bg-gray-50 p-1 rounded"
-              onClick={(e) => {
-                e.stopPropagation()
-                setEditingCell({itemId: row.original.id, field: 'status'})
-              }}
-            >
+            <div className="text-left">
               <span className="inline-flex items-center px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded-full">
                 {status === 'Completed' && <CheckCircle className="w-3 h-3 mr-1" />}
                 {status}
               </span>
             </div>
-          ) : (
-            <div 
-              className="text-left cursor-pointer hover:bg-gray-50 p-1 rounded text-gray-400"
-              onClick={(e) => {
-                e.stopPropagation()
-                setEditingCell({itemId: row.original.id, field: 'status'})
-              }}
-            >
-              Click to set status
-            </div>
-          )
+          ) : null
         },
       },
       // Dynamic columns for all extraFields that have data
@@ -956,184 +528,12 @@ function App() {
             header: headerLabel,
           cell: ({ row }: { row: any }) => {
             const value = row.original.extraFields?.[fieldName]
-            const isEditing = editingCell?.itemId === row.original.id && editingCell?.field === fieldName
+            if (!value) return null
             
-            if (isEditing) {
-              // Handle different field types for editing
-              if (fieldDef?.type === 'array' || fieldName === 'priority' || fieldName === 'energy') {
-                // Get options from field definition or use defaults for common fields
-                let options = fieldDef?.options || []
-                if (fieldName === 'priority' && options.length === 0) {
-                  options = ['high', 'medium', 'low']
-                }
-                if (fieldName === 'energy' && options.length === 0) {
-                  options = ['high', 'medium', 'low']
-                }
-                
-                return (
-                  <div onClick={(e) => e.stopPropagation()}>
-                    <select
-                      value={Array.isArray(value) ? value[0] || '' : value || ''}
-                      onChange={async (e) => {
-                        e.stopPropagation()
-                        try {
-                          const newValue = fieldDef?.allowMultiple ? [e.target.value] : e.target.value
-                          const updatedExtraFields = { ...row.original.extraFields, [fieldName]: newValue }
-                          await updateItem(row.original.id, row.original.title, row.original.description, row.original.status, updatedExtraFields)
-                          setEditingCell(null)
-                          loadItems()
-                        } catch (error) {
-                          console.error('Failed to update field:', error)
-                          setEditingCell(null)
-                        }
-                      }}
-                      onBlur={() => {
-                        setTimeout(() => setEditingCell(null), 100)
-                      }}
-                      autoFocus
-                      className="px-2 py-1 text-xs border rounded w-full"
-                    >
-                      <option value="">Select {fieldName}</option>
-                      {options.map(option => (
-                        <option key={option} value={option}>
-                          {fieldName === 'priority' || fieldName === 'energy' ? 
-                            option.charAt(0).toUpperCase() + option.slice(1) : 
-                            option
-                          }
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                )
-              }
-              
-              if (fieldDef?.type === 'boolean') {
-                return (
-                  <div onClick={(e) => e.stopPropagation()}>
-                    <select
-                      value={value ? 'true' : 'false'}
-                      onChange={async (e) => {
-                        e.stopPropagation()
-                        try {
-                          const updatedExtraFields = { ...row.original.extraFields, [fieldName]: e.target.value === 'true' }
-                          await updateItem(row.original.id, row.original.title, row.original.description, row.original.status, updatedExtraFields)
-                          setEditingCell(null)
-                          loadItems()
-                        } catch (error) {
-                          console.error('Failed to update field:', error)
-                          setEditingCell(null)
-                        }
-                      }}
-                      onBlur={() => {
-                        setTimeout(() => setEditingCell(null), 100)
-                      }}
-                      autoFocus
-                      className="px-2 py-1 text-xs border rounded"
-                    >
-                      <option value="true">Yes</option>
-                      <option value="false">No</option>
-                    </select>
-                  </div>
-                )
-              }
-              
-              // Default text input
-              const editKey = `${row.original.id}-${fieldName}`
-              const currentEditingValue = editingValue[editKey] ?? value ?? ''
-              
-              return (
-                <div onClick={(e) => e.stopPropagation()}>
-                  <input
-                    type={fieldDef?.type === 'date' ? 'date' : fieldDef?.type === 'datetime' ? 'datetime-local' : 'text'}
-                    value={fieldDef?.type === 'date' || fieldDef?.type === 'datetime' ? (value || '') : currentEditingValue}
-                    onChange={(e) => {
-                      if (fieldDef?.type === 'date' || fieldDef?.type === 'datetime') {
-                        // For date inputs, save immediately on change
-                        const updatedExtraFields = { ...row.original.extraFields, [fieldName]: e.target.value }
-                        updateItem(row.original.id, row.original.title, row.original.description, row.original.status, updatedExtraFields)
-                          .then(() => {
-                            setEditingCell(null)
-                            loadItems()
-                          })
-                          .catch((error) => {
-                            console.error('Failed to update field:', error)
-                            setEditingCell(null)
-                          })
-                      } else {
-                        // For text inputs, just update local state
-                        setEditingValue(prev => ({ ...prev, [editKey]: e.target.value }))
-                      }
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        e.currentTarget.blur()
-                      }
-                      if (e.key === 'Escape') {
-                        setEditingCell(null)
-                        setEditingValue(prev => {
-                          const newState = { ...prev }
-                          delete newState[editKey]
-                          return newState
-                        })
-                      }
-                    }}
-                    onBlur={async (e) => {
-                      // Only save text fields on blur (dates are saved on change)
-                      if (fieldDef?.type !== 'date' && fieldDef?.type !== 'datetime') {
-                        try {
-                          const updatedExtraFields = { ...row.original.extraFields, [fieldName]: currentEditingValue }
-                          await updateItem(row.original.id, row.original.title, row.original.description, row.original.status, updatedExtraFields)
-                          setEditingCell(null)
-                          setEditingValue(prev => {
-                            const newState = { ...prev }
-                            delete newState[editKey]
-                            return newState
-                          })
-                          loadItems()
-                        } catch (error) {
-                          console.error('Failed to update field:', error)
-                          setEditingCell(null)
-                          setEditingValue(prev => {
-                            const newState = { ...prev }
-                            delete newState[editKey]
-                            return newState
-                          })
-                        }
-                      } else {
-                        setEditingCell(null)
-                      }
-                    }}
-                    autoFocus
-                    className="px-2 py-1 text-xs border rounded w-full"
-                  />
-                </div>
-              )
-            }
-            
-            if (!value) {
-              return (
-                <div 
-                  className="text-gray-400 cursor-pointer hover:bg-gray-50 p-1 rounded text-xs"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    setEditingCell({itemId: row.original.id, field: fieldName})
-                  }}
-                >
-                  Click to set
-                </div>
-              )
-            }
-            
-            // Handle different field types for display
+            // Handle different field types
             if (Array.isArray(value)) {
               return (
-                <div 
-                  className="flex flex-wrap gap-1 cursor-pointer hover:bg-gray-50 p-1 rounded"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    setEditingCell({itemId: row.original.id, field: fieldName})
-                  }}
-                >
+                <div className="flex flex-wrap gap-1">
                   {value.map((item, idx) => (
                     <span key={idx} className="inline-flex items-center px-1.5 py-0.5 bg-gray-100 text-gray-700 text-xs rounded">
                       {item}
@@ -1145,15 +545,9 @@ function App() {
             
             if (typeof value === 'boolean') {
               return (
-                <span 
-                  className={`inline-flex items-center px-2 py-1 text-xs rounded-full cursor-pointer hover:opacity-80 ${
-                    value ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
-                  }`}
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    setEditingCell({itemId: row.original.id, field: fieldName})
-                  }}
-                >
+                <span className={`inline-flex items-center px-2 py-1 text-xs rounded-full ${
+                  value ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                }`}>
                   {value ? 'Yes' : 'No'}
                 </span>
               )
@@ -1162,36 +556,24 @@ function App() {
             // Special styling for priority and energy
             if (fieldName === 'priority') {
               return (
-                <span 
-                  className={`inline-flex items-center px-2 py-1 text-xs rounded-full cursor-pointer hover:opacity-80 ${
+                <span className={`inline-flex items-center px-2 py-1 text-xs rounded-full ${
                   value.toLowerCase() === 'high' ? 'bg-red-100 text-red-700' :
                   value.toLowerCase() === 'medium' ? 'bg-yellow-100 text-yellow-700' :
                   'bg-green-100 text-green-700'
-                }`}
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    setEditingCell({itemId: row.original.id, field: fieldName})
-                  }}
-                >
-                  {value.charAt(0).toUpperCase() + value.slice(1)}
+                }`}>
+                  {value}
                 </span>
               )
             }
             
             if (fieldName === 'energy') {
               return (
-                <span 
-                  className={`inline-flex items-center px-2 py-1 text-xs rounded-full cursor-pointer hover:opacity-80 ${
+                <span className={`inline-flex items-center px-2 py-1 text-xs rounded-full ${
                   value.toLowerCase() === 'high' ? 'bg-blue-100 text-blue-700' :
                   value.toLowerCase() === 'medium' ? 'bg-purple-100 text-purple-700' :
                   'bg-gray-100 text-gray-700'
-                }`}
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    setEditingCell({itemId: row.original.id, field: fieldName})
-                  }}
-                >
-                  {value.charAt(0).toUpperCase() + value.slice(1)}
+                }`}>
+                  {value}
                 </span>
               )
             }
@@ -1211,17 +593,7 @@ function App() {
               try {
                 const date = new Date(value)
                 if (!isNaN(date.getTime())) {
-                  return (
-                    <span 
-                      className="text-sm cursor-pointer hover:bg-gray-50 p-1 rounded"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        setEditingCell({itemId: row.original.id, field: fieldName})
-                      }}
-                    >
-                      {date.toLocaleDateString('en-GB')}
-                    </span>
-                  )
+                  return <span className="text-sm">{date.toLocaleDateString('en-GB')}</span>
                 }
               } catch {
                 // Fall through to default
@@ -1229,17 +601,7 @@ function App() {
             }
             
             // Default text display
-            return (
-              <span 
-                className="text-sm cursor-pointer hover:bg-gray-50 p-1 rounded"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  setEditingCell({itemId: row.original.id, field: fieldName})
-                }}
-              >
-                {value}
-              </span>
-            )
+            return <span className="text-sm">{value}</span>
           },
         }
       })
@@ -1248,7 +610,6 @@ function App() {
       {
         id: "projects",
         header: "Projects",
-        size: 350,
         cell: ({ row }) => {
           const relationships = itemRelationships[row.original.id]
           const projectRels = relationships?.filter(rel => {
@@ -1257,23 +618,16 @@ function App() {
             return childBucket === 'projects' || parentBucket === 'projects' || 
                    childBucket === 'project' || parentBucket === 'project'
           }) || []
-          
-          // Remove duplicates by title
-          const uniqueProjects = projectRels.reduce((acc, rel) => {
-            const title = rel.childTitle || rel.parentTitle
-            if (title && !acc.some(item => item.title === title)) {
-              acc.push({ title, rel })
-            }
-            return acc
-          }, [] as Array<{title: string, rel: any}>)
-          
-          return uniqueProjects.length > 0 ? (
+          return projectRels.length > 0 ? (
             <div className="flex flex-wrap gap-1">
-              {uniqueProjects.map((item, idx) => (
+              {projectRels.slice(0, 2).map((rel, idx) => (
                 <span key={idx} className="inline-flex items-center px-1.5 py-0.5 bg-blue-50 text-blue-700 text-xs rounded">
-                  {item.title}
+                  {rel.childTitle || rel.parentTitle}
                 </span>
               ))}
+              {projectRels.length > 2 && (
+                <span className="text-xs text-gray-400">+{projectRels.length - 2}</span>
+              )}
             </div>
           ) : null
         },
@@ -1281,7 +635,6 @@ function App() {
       {
         id: "areas",
         header: "Areas",
-        size: 350,
         cell: ({ row }) => {
           const relationships = itemRelationships[row.original.id]
           const areaRels = relationships?.filter(rel => {
@@ -1290,23 +643,16 @@ function App() {
             return childBucket === 'areas' || parentBucket === 'areas' || 
                    childBucket === 'area' || parentBucket === 'area'
           }) || []
-          
-          // Remove duplicates by title
-          const uniqueAreas = areaRels.reduce((acc, rel) => {
-            const title = rel.childTitle || rel.parentTitle
-            if (title && !acc.some(item => item.title === title)) {
-              acc.push({ title, rel })
-            }
-            return acc
-          }, [] as Array<{title: string, rel: any}>)
-          
-          return uniqueAreas.length > 0 ? (
+          return areaRels.length > 0 ? (
             <div className="flex flex-wrap gap-1">
-              {uniqueAreas.map((item, idx) => (
+              {areaRels.slice(0, 2).map((rel, idx) => (
                 <span key={idx} className="inline-flex items-center px-1.5 py-0.5 bg-green-50 text-green-700 text-xs rounded">
-                  {item.title}
+                  {rel.childTitle || rel.parentTitle}
                 </span>
               ))}
+              {areaRels.length > 2 && (
+                <span className="text-xs text-gray-400">+{areaRels.length - 2}</span>
+              )}
             </div>
           ) : null
         },
@@ -1314,7 +660,6 @@ function App() {
       {
         id: "resources",
         header: "Resources",
-        size: 350,
         cell: ({ row }) => {
           const relationships = itemRelationships[row.original.id]
           const resourceRels = relationships?.filter(rel => {
@@ -1323,23 +668,16 @@ function App() {
             return childBucket === 'resources' || parentBucket === 'resources' || 
                    childBucket === 'resource' || parentBucket === 'resource'
           }) || []
-          
-          // Remove duplicates by title
-          const uniqueResources = resourceRels.reduce((acc, rel) => {
-            const title = rel.childTitle || rel.parentTitle
-            if (title && !acc.some(item => item.title === title)) {
-              acc.push({ title, rel })
-            }
-            return acc
-          }, [] as Array<{title: string, rel: any}>)
-          
-          return uniqueResources.length > 0 ? (
+          return resourceRels.length > 0 ? (
             <div className="flex flex-wrap gap-1">
-              {uniqueResources.map((item, idx) => (
+              {resourceRels.slice(0, 2).map((rel, idx) => (
                 <span key={idx} className="inline-flex items-center px-1.5 py-0.5 bg-yellow-50 text-yellow-700 text-xs rounded">
-                  {item.title}
+                  {rel.childTitle || rel.parentTitle}
                 </span>
               ))}
+              {resourceRels.length > 2 && (
+                <span className="text-xs text-gray-400">+{resourceRels.length - 2}</span>
+              )}
             </div>
           ) : null
         },
@@ -1347,7 +685,6 @@ function App() {
       {
         id: "actions",
         header: "Actions",
-        size: 350,
         cell: ({ row }) => {
           const relationships = itemRelationships[row.original.id]
           const actionRels = relationships?.filter(rel => {
@@ -1356,23 +693,16 @@ function App() {
             return childBucket === 'actions' || parentBucket === 'actions' || 
                    childBucket === 'action' || parentBucket === 'action'
           }) || []
-          
-          // Remove duplicates by title
-          const uniqueActions = actionRels.reduce((acc, rel) => {
-            const title = rel.childTitle || rel.parentTitle
-            if (title && !acc.some(item => item.title === title)) {
-              acc.push({ title, rel })
-            }
-            return acc
-          }, [] as Array<{title: string, rel: any}>)
-          
-          return uniqueActions.length > 0 ? (
+          return actionRels.length > 0 ? (
             <div className="flex flex-wrap gap-1">
-              {uniqueActions.map((item, idx) => (
+              {actionRels.slice(0, 2).map((rel, idx) => (
                 <span key={idx} className="inline-flex items-center px-1.5 py-0.5 bg-red-50 text-red-700 text-xs rounded">
-                  {item.title}
+                  {rel.childTitle || rel.parentTitle}
                 </span>
               ))}
+              {actionRels.length > 2 && (
+                <span className="text-xs text-gray-400">+{actionRels.length - 2}</span>
+              )}
             </div>
           ) : null
         },
