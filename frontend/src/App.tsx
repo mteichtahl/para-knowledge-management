@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { Calendar, momentLocalizer } from 'react-big-calendar'
 import moment from 'moment'
 import 'react-big-calendar/lib/css/react-big-calendar.css'
+import ForceGraph2D from 'react-force-graph-2d'
 import { Search, Plus, Settings, X, Target, Briefcase, BookOpen, Archive, CheckSquare, CheckCircle, Link, ChevronDown, ChevronRight, Edit, Trash2 } from 'lucide-react'
 import { type ColumnDef } from '@tanstack/react-table'
 import { DataTable } from './components/DataTable'
@@ -103,7 +104,11 @@ function App() {
   const [relationshipType, setRelationshipType] = useState('contains')
   const [draggedItem, setDraggedItem] = useState<string | null>(null)
   const [itemRelationships, setItemRelationships] = useState<Record<string, any[]>>({})
-  const [currentView, setCurrentView] = useState<'list' | 'priority' | 'status' | 'date' | 'timeline' | 'kanban'>('kanban')
+  const [itemPositions, setItemPositions] = useState<Record<string, {x: number, y: number}>>({})
+  const [selectedGraphItem, setSelectedGraphItem] = useState<string | null>(null)
+  const [draggedGraphItem, setDraggedGraphItem] = useState<string | null>(null)
+  const [itemOrder, setItemOrder] = useState<Record<string, string[]>>({})
+  const [currentView, setCurrentView] = useState<'list' | 'priority' | 'status' | 'date' | 'timeline' | 'kanban' | 'graph'>('kanban')
   const [showCreateDropdown, setShowCreateDropdown] = useState(false)
   const [hiddenColumns, setHiddenColumns] = useState<Set<string>>(new Set())
   const [newField, setNewField] = useState({
@@ -449,6 +454,8 @@ function App() {
         return renderStatusView(items)
       case 'date':
         return renderDateView(items)
+      case 'graph':
+        return renderGraphView(items)
       case 'timeline':
         return renderTimelineView(items)
       case 'kanban':
@@ -841,6 +848,221 @@ function App() {
             {renderListView(groupItems)}
           </div>
         ))}
+      </div>
+    )
+  }
+
+  const renderGraphView = (allItems: Item[]) => {
+    // Get related item IDs for selected item
+    const getRelatedItemIds = (itemId: string): Set<string> => {
+      const related = new Set<string>([itemId])
+      const relationships = itemRelationships[itemId] || []
+      relationships.forEach(rel => {
+        related.add(rel.parentId)
+        related.add(rel.childId)
+      })
+      // Also check if this item is referenced by others
+      Object.entries(itemRelationships).forEach(([id, rels]) => {
+        rels.forEach(rel => {
+          if (rel.parentId === itemId || rel.childId === itemId) {
+            related.add(id)
+            related.add(rel.parentId)
+            related.add(rel.childId)
+          }
+        })
+      })
+      return related
+    }
+
+    const relatedIds = selectedGraphItem ? getRelatedItemIds(selectedGraphItem) : new Set()
+    const filteredItems = selectedGraphItem ? allItems.filter(item => relatedIds.has(item.id)) : allItems
+
+    // Group items by bucket
+    // Group items by bucket and apply custom ordering
+    const bucketGroups = {
+      'AREA': filteredItems.filter(item => item.bucket === 'AREA'),
+      'PROJECT': filteredItems.filter(item => item.bucket === 'PROJECT'),
+      'ACTION': filteredItems.filter(item => item.bucket === 'ACTION'),
+      'RESOURCE': filteredItems.filter(item => item.bucket === 'RESOURCE'),
+      'ARCHIVE': filteredItems.filter(item => item.bucket === 'ARCHIVE')
+    }
+
+    // Apply custom ordering if available
+    Object.keys(bucketGroups).forEach(bucket => {
+      const order = itemOrder[bucket]
+      if (order) {
+        bucketGroups[bucket as keyof typeof bucketGroups] = order
+          .map(id => bucketGroups[bucket as keyof typeof bucketGroups].find(item => item.id === id))
+          .filter(Boolean) as Item[]
+      }
+    })
+
+    const bucketColors: Record<string, string> = {
+      'PROJECT': '#3b82f6',
+      'AREA': '#10b981', 
+      'RESOURCE': '#f59e0b',
+      'ARCHIVE': '#6b7280',
+      'ACTION': '#ef4444'
+    }
+
+    // Get all relationships for drawing lines - filter based on selection
+    const allRelationships: any[] = []
+    Object.entries(itemRelationships).forEach(([itemId, relationships]) => {
+      relationships.forEach(rel => {
+        // Only include relationships where both items are in the filtered set
+        const sourceInFiltered = filteredItems.some(item => item.id === rel.parentId)
+        const targetInFiltered = filteredItems.some(item => item.id === rel.childId)
+        if (sourceInFiltered && targetInFiltered) {
+          allRelationships.push({
+            source: rel.parentId,
+            target: rel.childId,
+            type: rel.relationship
+          })
+        }
+      })
+    })
+
+    return (
+      <div className="h-screen w-full bg-white p-8 overflow-auto relative">
+        {selectedGraphItem && (
+          <div className="mb-4">
+            <button
+              onClick={() => setSelectedGraphItem(null)}
+              className="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm"
+            >
+              ← Show All Items
+            </button>
+          </div>
+        )}
+        {/* SVG for connecting lines */}
+        <svg className="absolute inset-0 pointer-events-none z-10" style={{ width: '100%', height: '100%' }}>
+          <defs>
+            <marker id="arrowhead" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto" markerUnits="strokeWidth">
+              <polygon points="0,0 0,6 8,3" fill="#64748b" />
+            </marker>
+          </defs>
+          {allRelationships.map((rel, idx) => {
+            const sourcePos = itemPositions[rel.source]
+            const targetPos = itemPositions[rel.target]
+            // Only draw lines if both positions exist and are for actual items
+            const sourceItem = filteredItems.find(item => item.id === rel.source)
+            const targetItem = filteredItems.find(item => item.id === rel.target)
+            if (sourcePos && targetPos && sourceItem && targetItem) {
+              // Determine connection points on card edges
+              const isSourceLeft = sourcePos.x < targetPos.x
+              const sourceEdgeX = isSourceLeft ? sourcePos.left + sourcePos.width : sourcePos.left
+              const targetEdgeX = isSourceLeft ? targetPos.left : targetPos.left + targetPos.width
+              
+              // Route around items - go out horizontally, then vertically, then horizontally to target
+              const horizontalOffset = 30 // Distance to go out from card edge
+              const sourceOutX = isSourceLeft ? sourceEdgeX + horizontalOffset : sourceEdgeX - horizontalOffset
+              const targetOutX = isSourceLeft ? targetEdgeX - horizontalOffset : targetEdgeX + horizontalOffset
+              
+              return (
+                <g key={idx}>
+                  <path
+                    d={`M ${sourceEdgeX} ${sourcePos.y} 
+                        L ${sourceOutX} ${sourcePos.y} 
+                        L ${sourceOutX} ${targetPos.y} 
+                        L ${targetOutX} ${targetPos.y}
+                        L ${targetEdgeX} ${targetPos.y}`}
+                    stroke="#64748b"
+                    strokeWidth="2"
+                    strokeOpacity="0.7"
+                    fill="none"
+                    markerEnd="url(#arrowhead)"
+                  />
+                </g>
+              )
+            }
+            return null
+          })}
+        </svg>
+
+        <div className="grid grid-cols-5 gap-6 h-full relative z-20">
+          {Object.entries(bucketGroups).map(([bucket, items]) => (
+            <div key={bucket} className="flex flex-col">
+              <div 
+                className="text-center p-4 rounded-lg mb-4 text-white font-semibold"
+                style={{ backgroundColor: bucketColors[bucket] }}
+              >
+                {bucket}S ({items.length})
+              </div>
+              <div className="flex-1 space-y-2 overflow-y-auto">
+                {items.map((item, itemIdx) => (
+                  <div
+                    key={item.id}
+                    draggable
+                    onDragStart={() => setDraggedGraphItem(item.id)}
+                    onDragEnd={() => setDraggedGraphItem(null)}
+                    onDragOver={(e) => e.preventDefault()}
+                    onDrop={(e) => {
+                      e.preventDefault()
+                      if (draggedGraphItem && draggedGraphItem !== item.id) {
+                        const currentOrder = itemOrder[bucket] || items.map(i => i.id)
+                        const draggedIndex = currentOrder.indexOf(draggedGraphItem)
+                        const targetIndex = currentOrder.indexOf(item.id)
+                        
+                        if (draggedIndex !== -1 && targetIndex !== -1) {
+                          const newOrder = [...currentOrder]
+                          newOrder.splice(draggedIndex, 1)
+                          newOrder.splice(targetIndex, 0, draggedGraphItem)
+                          
+                          setItemOrder(prev => ({
+                            ...prev,
+                            [bucket]: newOrder
+                          }))
+                        }
+                      }
+                    }}
+                    ref={(el) => {
+                      if (el) {
+                        const rect = el.getBoundingClientRect()
+                        const containerRect = document.querySelector('.h-screen.w-full.bg-white.p-8')?.getBoundingClientRect()
+                        if (containerRect) {
+                          const newPos = {
+                            x: rect.left - containerRect.left + rect.width / 2,
+                            y: rect.top - containerRect.top + rect.height / 2,
+                            width: rect.width,
+                            height: rect.height,
+                            left: rect.left - containerRect.left,
+                            top: rect.top - containerRect.top
+                          }
+                          const currentPos = itemPositions[item.id]
+                          if (!currentPos || Math.abs(currentPos.x - newPos.x) > 1 || Math.abs(currentPos.y - newPos.y) > 1) {
+                            setItemPositions(prev => ({
+                              ...prev,
+                              [item.id]: newPos
+                            }))
+                          }
+                        }
+                      }
+                    }}
+                    onClick={() => {
+                      setSelectedGraphItem(item.id)
+                    }}
+                    className={`p-3 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 border-l-4 transition-colors ${
+                      draggedGraphItem === item.id ? 'opacity-50' : ''
+                    }`}
+                    style={{ borderLeftColor: bucketColors[bucket] }}
+                  >
+                    <div className="font-medium text-sm text-gray-900 truncate">
+                      {item.title}
+                    </div>
+                    {item.description && (
+                      <div className="text-xs text-gray-600 mt-1 line-clamp-2">
+                        {item.description}
+                      </div>
+                    )}
+                    <div className="text-xs text-gray-500 mt-1">
+                      {item.status}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
     )
   }
@@ -1468,6 +1690,7 @@ function App() {
               { key: 'priority', label: 'Priority', icon: '⚡' },
               { key: 'status', label: 'Status', icon: '📊' },
               { key: 'date', label: 'Date', icon: '📅' },
+              { key: 'graph', label: 'Graph', icon: '🕸️' },
               { key: 'timeline', label: 'Timeline', icon: '📈' },
               { key: 'kanban', label: 'Kanban', icon: '📋' }
             ].map(view => (
@@ -1505,7 +1728,7 @@ function App() {
               </p>
             </div>
           ) : (
-            renderItemsByView(selectedBucketItems)
+            currentView === 'graph' ? renderItemsByView(items) : renderItemsByView(selectedBucketItems)
           )}
         </div>
       </div>
