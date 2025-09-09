@@ -284,6 +284,64 @@ const server = createServer(async (req, res) => {
     return;
   }
 
+  // Notes endpoints
+  if (method === 'GET' && pathname.startsWith('/api/notes/')) {
+    try {
+      const itemId = pathname.split('/')[3];
+      const notes = await service.getNotes(itemId);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(notes));
+    } catch (error) {
+      console.error('Error getting notes:', error);
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Failed to get notes' }));
+    }
+    return;
+  }
+
+  if (method === 'POST' && pathname === '/api/notes') {
+    try {
+      const { itemId, content } = JSON.parse(body);
+      const note = await service.createNote(itemId, content);
+      res.writeHead(201, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(note));
+    } catch (error) {
+      console.error('Error creating note:', error);
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Failed to create note' }));
+    }
+    return;
+  }
+
+  if (method === 'PUT' && pathname.startsWith('/api/notes/')) {
+    try {
+      const noteId = pathname.split('/')[3];
+      const { content } = JSON.parse(body);
+      const note = await service.updateNote(noteId, content);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(note));
+    } catch (error) {
+      console.error('Error updating note:', error);
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Failed to update note' }));
+    }
+    return;
+  }
+
+  if (method === 'DELETE' && pathname.startsWith('/api/notes/')) {
+    try {
+      const noteId = pathname.split('/')[3];
+      await service.deleteNote(noteId);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: true }));
+    } catch (error) {
+      console.error('Error deleting note:', error);
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Failed to delete note' }));
+    }
+    return;
+  }
+
   // Serve static files
   if (method === 'GET') {
     try {

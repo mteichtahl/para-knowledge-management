@@ -1,4 +1,4 @@
-import { eq, and, or, ilike, asc } from 'drizzle-orm';
+import { eq, and, or, ilike, asc, desc } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 import { db, Item, Status, ItemRelation, Note } from './db';
 import { items, statuses, itemRelations, notes, customFields, bucketFields } from './schema';
@@ -234,5 +234,30 @@ export class PARAService {
       eq(itemRelations.parentId, itemId),
       eq(itemRelations.childId, itemId)
     ));
+  }
+
+  // Notes methods
+  async getNotes(itemId: string) {
+    return await this.db.select().from(notes).where(eq(notes.itemId, itemId)).orderBy(desc(notes.createdAt));
+  }
+
+  async createNote(itemId: string, content: string) {
+    const [note] = await this.db.insert(notes).values({
+      itemId,
+      content,
+    }).returning();
+    return note;
+  }
+
+  async updateNote(noteId: string, content: string) {
+    const [note] = await this.db.update(notes)
+      .set({ content, updatedAt: new Date() })
+      .where(eq(notes.id, noteId))
+      .returning();
+    return note;
+  }
+
+  async deleteNote(noteId: string) {
+    await this.db.delete(notes).where(eq(notes.id, noteId));
   }
 }

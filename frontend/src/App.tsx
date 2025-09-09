@@ -4,7 +4,7 @@ import { Calendar, momentLocalizer } from 'react-big-calendar'
 import moment from 'moment'
 import 'react-big-calendar/lib/css/react-big-calendar.css'
 import ForceGraph2D from 'react-force-graph-2d'
-import { Search, Plus, Settings, X, Target, Briefcase, BookOpen, Archive, CheckSquare, CheckCircle, Link, ChevronDown, ChevronRight, Edit, Trash2, Menu, AlertTriangle, Zap, CalendarDays } from 'lucide-react'
+import { Search, Plus, Settings, X, Target, Briefcase, BookOpen, Archive, CheckSquare, CheckCircle, Link, ChevronDown, ChevronRight, Edit, Trash2, Menu, AlertTriangle, Zap, CalendarDays, MessageSquare } from 'lucide-react'
 import { type ColumnDef } from '@tanstack/react-table'
 import { DataTable } from './components/DataTable'
 import { Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarHeader, SidebarInset, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarProvider, SidebarTrigger } from './components/ui/sidebar'
@@ -19,6 +19,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Badge } from './components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from './components/ui/card'
 import { ThemeToggle } from './components/theme-toggle'
+import ReactMarkdown from 'react-markdown'
+import MDEditor from '@uiw/react-md-editor'
 import './App.css'
 
 interface Item {
@@ -466,6 +468,12 @@ function App() {
   const [columnOrder, setColumnOrder] = useState<Record<string, string[]>>({})
   const [draggedColumn, setDraggedColumn] = useState<string | null>(null)
   const [availableColumns, setAvailableColumns] = useState<string[]>([])
+  const [notes, setNotes] = useState<any[]>([])
+  const [notesCounts, setNotesCounts] = useState<Record<string, number>>({})
+  const [showNotesPanel, setShowNotesPanel] = useState(false)
+  const [selectedItemForNotes, setSelectedItemForNotes] = useState<string | null>(null)
+  const [newNote, setNewNote] = useState('')
+  const [editingNote, setEditingNote] = useState<{id: string, content: string} | null>(null)
   const [newField, setNewField] = useState({
     name: '',
     label: '',
@@ -533,6 +541,8 @@ function App() {
       const response = await fetch('/api/items')
       const data = await response.json()
       setItems(data)
+      // Load notes counts
+      loadNotesCounts(data)
       // Load relationships for each item
       data.forEach((item: Item) => {
         loadItemRelationships(item.id)
@@ -1390,6 +1400,25 @@ function App() {
           ) : null
         },
       },
+      {
+        id: "notes",
+        header: "",
+        cell: ({ row }) => (
+          <button
+            onClick={(e) => {
+              e.stopPropagation()
+              setSelectedItemForNotes(row.original.id)
+              loadNotes(row.original.id)
+              setShowNotesPanel(true)
+            }}
+            className="p-1 text-gray-400 hover:text-gray-600 rounded"
+            title="Notes"
+          >
+            <MessageSquare className="w-4 h-4" />
+          </button>
+        ),
+        size: 40,
+      },
     ]
 
     return (
@@ -2209,8 +2238,25 @@ function App() {
                         className="cursor-pointer hover:shadow-md transition-shadow"
                         onClick={() => openEditPanel(item)}
                       >
-                        <CardContent className="p-3">
-                          <CardTitle className="text-sm font-medium text-gray-900 mb-1 text-left">{item.title}</CardTitle>
+                        <CardContent className="p-3 relative">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setSelectedItemForNotes(item.id)
+                              loadNotes(item.id)
+                              setShowNotesPanel(true)
+                            }}
+                            className="absolute top-2 right-2 p-1 text-gray-400 hover:text-gray-600 rounded flex items-center gap-1"
+                            title="Notes"
+                          >
+                            <MessageSquare className="w-3 h-3" />
+                            {notesCounts[item.id] > 0 && (
+                              <span className="text-[10px] bg-black text-white rounded-full px-1 min-w-[16px] h-4 flex items-center justify-center">
+                                {notesCounts[item.id]}
+                              </span>
+                            )}
+                          </button>
+                          <CardTitle className="text-sm font-medium text-gray-900 mb-1 text-left pr-8">{item.title}</CardTitle>
                           {(item.extraFields?.startDate || item.extraFields?.endDate) && (
                             <div className="text-xs text-gray-500 mb-2 flex items-center gap-1">
                               <CalendarDays className="w-3 h-3" />
@@ -2250,6 +2296,77 @@ function App() {
         })}
       </div>
     )
+  }
+
+  const loadNotesCounts = async (itemsList: Item[]) => {
+    try {
+      const counts: Record<string, number> = {}
+      await Promise.all(itemsList.map(async (item) => {
+        const response = await fetch(`/api/notes/${item.id}`)
+        if (response.ok) {
+          const data = await response.json()
+          counts[item.id] = data.length
+        }
+      }))
+      setNotesCounts(counts)
+    } catch (error) {
+      console.error('Failed to load notes counts:', error)
+    }
+  }
+
+  const loadNotes = async (itemId: string) => {
+    try {
+      const response = await fetch(`/api/notes/${itemId}`)
+      if (response.ok) {
+        const data = await response.json()
+        setNotes(data)
+      }
+    } catch (error) {
+      console.error('Failed to load notes:', error)
+    }
+  }
+
+  const createNote = async (itemId: string, content: string) => {
+    try {
+      const response = await fetch('/api/notes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ itemId, content })
+      })
+      if (response.ok) {
+        await loadNotes(itemId)
+        loadNotesCounts(items)
+      }
+    } catch (error) {
+      console.error('Failed to create note:', error)
+    }
+  }
+
+  const updateNote = async (noteId: string, content: string) => {
+    try {
+      const response = await fetch(`/api/notes/${noteId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content })
+      })
+      if (response.ok && selectedItemForNotes) {
+        await loadNotes(selectedItemForNotes)
+      }
+    } catch (error) {
+      console.error('Failed to update note:', error)
+    }
+  }
+
+  const deleteNote = async (noteId: string) => {
+    try {
+      const response = await fetch(`/api/notes/${noteId}`, { method: 'DELETE' })
+      if (response.ok && selectedItemForNotes) {
+        await loadNotes(selectedItemForNotes)
+        loadNotesCounts(items)
+      }
+    } catch (error) {
+      console.error('Failed to delete note:', error)
+    }
   }
 
   const loadItemRelationships = async (itemId: string) => {
@@ -3265,6 +3382,103 @@ function App() {
       </div>
       </SidebarInset>
       </div>
+
+      {/* Notes Panel */}
+      <Sheet open={showNotesPanel} onOpenChange={setShowNotesPanel}>
+        <SheetContent className="w-[500px] max-w-[90vw]">
+          <SheetHeader>
+            <SheetTitle>Notes</SheetTitle>
+          </SheetHeader>
+          <div className="mt-6 flex flex-col h-[calc(100vh-120px)] space-y-4">
+            {/* Add new note */}
+            <div className="space-y-2">
+              <MDEditor
+                value={newNote}
+                onChange={(val) => setNewNote(val || '')}
+                preview="edit"
+                hideToolbar={false}
+                data-color-mode="light"
+              />
+              <Button 
+                onClick={() => {
+                  if (newNote.trim() && selectedItemForNotes) {
+                    createNote(selectedItemForNotes, newNote.trim())
+                    setNewNote('')
+                  }
+                }}
+                className="w-full"
+              >
+                Add Note
+              </Button>
+            </div>
+            
+            {/* Notes list */}
+            <div className="space-y-3 flex-1 overflow-y-auto">
+              {notes.length === 0 ? (
+                <p className="text-gray-500 text-sm text-center py-8">No notes yet</p>
+              ) : (
+                notes.map((note) => (
+                  <div key={note.id} className="border rounded-lg p-3 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-gray-500">
+                        {new Date(note.createdAt).toLocaleDateString('en-AU')} at {new Date(note.createdAt).toLocaleTimeString('en-AU', { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                      <div className="flex gap-1">
+                        <button 
+                          onClick={() => setEditingNote({ id: note.id, content: note.content })}
+                          className="p-1 text-gray-400 hover:text-gray-600"
+                        >
+                          <Edit className="w-3 h-3" />
+                        </button>
+                        <button 
+                          onClick={() => deleteNote(note.id)}
+                          className="p-1 text-gray-400 hover:text-red-600"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </button>
+                      </div>
+                    </div>
+                    {editingNote?.id === note.id ? (
+                      <div className="space-y-2">
+                        <MDEditor
+                          value={editingNote.content}
+                          onChange={(val) => setEditingNote({ ...editingNote, content: val || '' })}
+                          preview="edit"
+                          hideToolbar={false}
+                          data-color-mode="light"
+                        />
+                        <div className="flex gap-2">
+                          <Button 
+                            size="sm"
+                            onClick={() => {
+                              updateNote(editingNote.id, editingNote.content)
+                              setEditingNote(null)
+                            }}
+                          >
+                            Save
+                          </Button>
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            onClick={() => setEditingNote(null)}
+                          >
+                            Cancel
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="prose prose-sm max-w-none">
+                        <ReactMarkdown>{note.content}</ReactMarkdown>
+                      </div>
+                    )}
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </SheetContent>
+      </Sheet>
+
     </SidebarProvider>
   )
 }
