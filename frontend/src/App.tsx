@@ -4,9 +4,10 @@ import { Calendar, momentLocalizer } from 'react-big-calendar'
 import moment from 'moment'
 import 'react-big-calendar/lib/css/react-big-calendar.css'
 import ForceGraph2D from 'react-force-graph-2d'
-import { Search, Plus, Settings, X, Target, Briefcase, BookOpen, Archive, CheckSquare, CheckCircle, Link, ChevronDown, ChevronRight, Edit, Trash2 } from 'lucide-react'
+import { Search, Plus, Settings, X, Target, Briefcase, BookOpen, Archive, CheckSquare, CheckCircle, Link, ChevronDown, ChevronRight, Edit, Trash2, Menu } from 'lucide-react'
 import { type ColumnDef } from '@tanstack/react-table'
 import { DataTable } from './components/DataTable'
+import { Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarHeader, SidebarInset, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarProvider, SidebarTrigger } from './components/ui/sidebar'
 import './App.css'
 
 interface Item {
@@ -425,7 +426,6 @@ function App() {
   const [selectedBucket, setSelectedBucket] = useState<string>('PROJECT')
   const [editingCell, setEditingCell] = useState<{itemId: string, field: string} | null>(null)
   const [editingValue, setEditingValue] = useState<Record<string, string>>({})
-  const [showLeftMenu, setShowLeftMenu] = useState(false)
   const [calendarDate, setCalendarDate] = useState(new Date())
   const [calendarView, setCalendarView] = useState<'month' | 'week' | 'day' | 'quarter'>('month')
   const [bucketFields, setBucketFields] = useState<Record<string, CustomField[]>>({})
@@ -2263,7 +2263,7 @@ function App() {
   const selectedBucketItems = filteredItems.filter(item => item.bucket === selectedBucket)
 
   return (
-    <div className="h-screen bg-white w-full">
+    <SidebarProvider>
       <style>{`
         select[multiple] option:checked {
           background: white !important;
@@ -2273,88 +2273,102 @@ function App() {
           background: white !important;
           color: black !important;
         }
+        :root {
+          --sidebar-width: 200px;
+          --sidebar-width-icon: 3rem;
+        }
+        .relative.w-\\[--sidebar-width\\].bg-transparent {
+          display: block !important;
+          width: 100px !important;
+        }
+        [data-sidebar="inset"] {
+          margin-left: 0 !important;
+          padding-left: 0 !important;
+        }
+        .group[data-state="collapsed"] ~ [data-sidebar="inset"] {
+          width: 90% !important;
+          margin: 0 auto !important;
+        }
+        .group[data-state="collapsed"] .relative.w-\\[--sidebar-width\\].bg-transparent {
+          width: 0px !important;
+        }
       `}</style>
-      
-      {/* Left Slide-out Menu */}
-      {showLeftMenu && (
-        <div className="fixed inset-0 z-50 flex">
-          {/* Backdrop */}
-          <div 
-            className="fixed inset-0 bg-black bg-opacity-50"
-            onClick={() => setShowLeftMenu(false)}
-          />
-          
-          {/* Menu Panel */}
-          <div className="relative bg-white w-80 h-full shadow-xl">
-            <div className="flex items-center justify-between p-6 border-b border-gray-200">
-              <h2 className="text-lg font-semibold text-gray-900">Navigation</h2>
-              <button
-                onClick={() => setShowLeftMenu(false)}
-                className="p-2 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
+      <div className="h-screen bg-white w-full flex">
+        <Sidebar>
+          <SidebarHeader>
+            <h2 className="text-lg font-semibold text-gray-900 px-4 py-2">PAARA System</h2>
+          </SidebarHeader>
+          <SidebarContent>
+            <SidebarGroup>
+              <SidebarGroupLabel>Search</SidebarGroupLabel>
+              <SidebarGroupContent>
+                <div className="px-4 py-2">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                    <input
+                      type="text"
+                      placeholder="Search..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-md focus:border-blue-500 focus:outline-none"
+                    />
+                  </div>
+                </div>
+              </SidebarGroupContent>
+            </SidebarGroup>
+            
+            <SidebarGroup>
+              <SidebarGroupLabel>PARA Buckets</SidebarGroupLabel>
+              <SidebarGroupContent>
+                <SidebarMenu>
+                  {['PROJECT', 'AREA', 'ACTION', 'RESOURCE', 'ARCHIVE'].map((bucket) => {
+                    const config = bucketConfig[bucket as keyof typeof bucketConfig]
+                    const Icon = config.icon
+                    const bucketItems = filteredItems.filter(item => item.bucket === bucket)
+                    const isSelected = selectedBucket === bucket
+
+                    return (
+                      <SidebarMenuItem key={bucket}>
+                        <SidebarMenuButton
+                          onClick={() => setSelectedBucket(bucket)}
+                          isActive={isSelected}
+                          className="w-full"
+                        >
+                          <Icon className={`w-4 h-4 ${config.color}`} />
+                          <span>{config.name}</span>
+                          <span className="ml-auto text-xs bg-gray-200 text-gray-600 px-2 py-0.5 rounded-full">
+                            {bucketItems.length}
+                          </span>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                    )
+                  })}
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+          </SidebarContent>
+        </Sidebar>
+        
+        <SidebarInset>
+          <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
+            <SidebarTrigger className="-ml-1" />
+            <div>
+              {(() => {
+                const config = bucketConfig[selectedBucket as keyof typeof bucketConfig]
+                return (
+                  <div>
+                    <h1 className="text-xl font-semibold text-gray-900 text-left">
+                      {config.name}
+                    </h1>
+                    <p className="text-sm text-gray-600 text-left">
+                      {config.description}
+                    </p>
+                  </div>
+                )
+              })()}
             </div>
             
-            <div className="p-6">
-              {/* Search */}
-              <div className="mb-6">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                  <input
-                    type="text"
-                    placeholder="Search..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-md focus:border-blue-500 focus:outline-none"
-                  />
-                </div>
-              </div>
-              
-              <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wide mb-4">PARA Buckets</h3>
-              <div className="space-y-2">
-                {/* Ordered buckets: Projects, Areas, Actions, Resources, Archives */}
-                {['PROJECT', 'AREA', 'ACTION', 'RESOURCE', 'ARCHIVE'].map((bucket) => {
-                  const config = bucketConfig[bucket as keyof typeof bucketConfig]
-                  const Icon = config.icon
-                  const bucketItems = filteredItems.filter(item => item.bucket === bucket)
-                  const isSelected = selectedBucket === bucket
-
-                  return (
-                    <button
-                      key={bucket}
-                      onClick={() => {
-                        setSelectedBucket(bucket)
-                      }}
-                      className={`w-full flex items-center px-4 py-3 rounded-lg transition-colors ${
-                        isSelected 
-                          ? 'bg-blue-50 text-blue-700 border border-blue-200' 
-                          : 'text-gray-600 hover:bg-gray-50 border border-transparent'
-                      }`}
-                    >
-                      <Icon className={`w-5 h-5 mr-3 ${config.color}`} />
-                      <span className="font-medium flex-1 text-left">{config.name}</span>
-                      <span className="text-xs bg-gray-200 text-gray-600 px-2 py-0.5 rounded-full">
-                        {bucketItems.length}
-                      </span>
-                    </button>
-                  )
-                })}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-      
-      <div className="w-full px-2">
-        <div className="flex flex-col h-full w-full">
-        {/* Header */}
-        <div className="border-b border-gray-200 p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h1 className="text-2xl font-semibold text-gray-900">PARA System</h1>
-            <div className="flex items-center gap-4">
+            <div className="ml-auto">
               <button 
                 onClick={openFieldsPanel}
                 className="flex items-center px-3 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-md"
@@ -2363,36 +2377,37 @@ function App() {
                 Custom Fields
               </button>
             </div>
-          </div>
+          </header>
+          
+          <div className="flex-1 overflow-auto pr-5 py-2">
+            <div className="w-full">
+              <div className="flex flex-col h-full w-full">
 
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-4">
-              {/* Hamburger Menu Button */}
-              <button
-                onClick={() => setShowLeftMenu(true)}
-                className="flex items-center px-3 py-2 rounded-lg text-gray-600 hover:bg-gray-50 border border-gray-200"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-                </svg>
-                <span className="ml-2 font-medium">Menu</span>
-              </button>
-              
-              {/* Current Bucket Display */}
-              {(() => {
-                const config = bucketConfig[selectedBucket as keyof typeof bucketConfig]
-                const Icon = config.icon
-                const bucketItems = filteredItems.filter(item => item.bucket === selectedBucket)
-                return (
-                  <div className="flex items-center px-4 py-2 bg-blue-50 text-blue-700 border border-blue-200 rounded-lg">
-                    <Icon className={`w-5 h-5 mr-2 ${config.color}`} />
-                    <span className="font-medium">{config.name}</span>
-                    <span className="ml-2 text-xs bg-blue-200 text-blue-700 px-2 py-0.5 rounded-full">
-                      {bucketItems.length}
-                    </span>
-                  </div>
-                )
-              })()}
+          {/* View Selector and Create Button */}
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-6">
+              {[
+                { key: 'list', label: 'List', icon: '☰' },
+                { key: 'priority', label: 'Priority', icon: '⚡' },
+                { key: 'status', label: 'Status', icon: '📊' },
+                { key: 'date', label: 'Date', icon: '📅' },
+                { key: 'graph', label: 'Graph', icon: '🕸️' },
+                { key: 'timeline', label: 'Timeline', icon: '📈' },
+                { key: 'kanban', label: 'Kanban', icon: '📋' }
+              ].map(view => (
+                <button
+                  key={view.key}
+                  onClick={() => setCurrentView(view.key as any)}
+                  className={`flex items-center px-4 py-2 rounded-lg transition-colors ${
+                    currentView === view.key 
+                      ? 'bg-blue-50 text-blue-700 border border-blue-200' 
+                      : 'text-gray-600 hover:bg-gray-50 border border-transparent'
+                  }`}
+                >
+                  <span className="w-5 h-5 mr-2 text-base flex items-center justify-center">{view.icon}</span>
+                  <span className="font-medium">{view.label}</span>
+                </button>
+              ))}
             </div>
             
             <div className="relative">
@@ -2434,33 +2449,6 @@ function App() {
               )}
             </div>
           </div>
-
-          {/* View Selector */}
-          <div className="flex items-center gap-6 mb-6">
-            {[
-              { key: 'list', label: 'List', icon: '☰' },
-              { key: 'priority', label: 'Priority', icon: '⚡' },
-              { key: 'status', label: 'Status', icon: '📊' },
-              { key: 'date', label: 'Date', icon: '📅' },
-              { key: 'graph', label: 'Graph', icon: '🕸️' },
-              { key: 'timeline', label: 'Timeline', icon: '📈' },
-              { key: 'kanban', label: 'Kanban', icon: '📋' }
-            ].map(view => (
-              <button
-                key={view.key}
-                onClick={() => setCurrentView(view.key as any)}
-                className={`flex items-center px-4 py-2 rounded-lg transition-colors ${
-                  currentView === view.key 
-                    ? 'bg-blue-50 text-blue-700 border border-blue-200' 
-                    : 'text-gray-600 hover:bg-gray-50 border border-transparent'
-                }`}
-              >
-                <span className="w-5 h-5 mr-2 text-base flex items-center justify-center">{view.icon}</span>
-                <span className="font-medium">{view.label}</span>
-              </button>
-            ))}
-          </div>
-        </div>
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-6">
@@ -3103,7 +3091,10 @@ function App() {
         </div>
       </div>
       </div>
-    </div>
+      </div>
+      </SidebarInset>
+      </div>
+    </SidebarProvider>
   )
 }
 
