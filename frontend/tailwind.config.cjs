@@ -63,8 +63,91 @@ module.exports = {
   				border: 'hsl(var(--sidebar-border))',
   				ring: 'hsl(var(--sidebar-ring))'
   			}
+  		},
+  		typography: {
+  			DEFAULT: {
+  				css: {
+  					maxWidth: 'none',
+  					color: 'hsl(var(--foreground))',
+  					'[class~="lead"]': {
+  						color: 'hsl(var(--muted-foreground))',
+  					},
+  					a: {
+  						color: 'hsl(var(--primary))',
+  						'&:hover': {
+  							color: 'hsl(var(--primary))',
+  						},
+  					},
+  					strong: {
+  						color: 'hsl(var(--foreground))',
+  					},
+  					'ol[type="A"]': {
+  						'--list-counter-style': 'upper-alpha',
+  					},
+  					'ol[type="a"]': {
+  						'--list-counter-style': 'lower-alpha',
+  					},
+  					'ol[type="A" s]': {
+  						'--list-counter-style': 'upper-alpha',
+  					},
+  					'ol[type="a" s]': {
+  						'--list-counter-style': 'lower-alpha',
+  					},
+  					'ol[type="I"]': {
+  						'--list-counter-style': 'upper-roman',
+  					},
+  					'ol[type="i"]': {
+  						'--list-counter-style': 'lower-roman',
+  					},
+  					'ol[type="I" s]': {
+  						'--list-counter-style': 'upper-roman',
+  					},
+  					'ol[type="i" s]': {
+  						'--list-counter-style': 'lower-roman',
+  					},
+  					'ol[type="1"]': {
+  						'--list-counter-style': 'decimal',
+  					},
+  					h1: {
+  						color: 'hsl(var(--foreground))',
+  					},
+  					h2: {
+  						color: 'hsl(var(--foreground))',
+  					},
+  					h3: {
+  						color: 'hsl(var(--foreground))',
+  					},
+  					h4: {
+  						color: 'hsl(var(--foreground))',
+  					},
+  					'figure figcaption': {
+  						color: 'hsl(var(--muted-foreground))',
+  					},
+  					code: {
+  						color: 'hsl(var(--foreground))',
+  					},
+  					'a code': {
+  						color: 'hsl(var(--primary))',
+  					},
+  					pre: {
+  						color: 'hsl(var(--muted-foreground))',
+  						backgroundColor: 'hsl(var(--muted))',
+  					},
+  					blockquote: {
+  						color: 'hsl(var(--foreground))',
+  						borderLeftColor: 'hsl(var(--border))',
+  					},
+  					'thead th': {
+  						color: 'hsl(var(--foreground))',
+  						borderBottomColor: 'hsl(var(--border))',
+  					},
+  					'tbody td': {
+  						borderBottomColor: 'hsl(var(--border))',
+  					},
+  				},
+  			},
   		}
   	}
   },
-  plugins: [require("tailwindcss-animate")],
+  plugins: [require("tailwindcss-animate"), require("@tailwindcss/typography")],
 }

@@ -18,6 +18,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from './co
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from './components/ui/dialog'
 import { Badge } from './components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from './components/ui/card'
+import { ThemeToggle } from './components/theme-toggle'
 import './App.css'
 
 interface Item {
@@ -2180,7 +2181,23 @@ function App() {
                       setDraggedItem(null)
                     }}
                   >
-                    {columnItems.map(item => (
+                    {columnItems
+                      .sort((a, b) => {
+                        // Sort by priority first (High > Medium > Low > none)
+                        const priorityOrder = { 'High': 3, 'Medium': 2, 'Low': 1 }
+                        const aPriority = priorityOrder[a.extraFields?.priority as keyof typeof priorityOrder] || 0
+                        const bPriority = priorityOrder[b.extraFields?.priority as keyof typeof priorityOrder] || 0
+                        
+                        if (aPriority !== bPriority) {
+                          return bPriority - aPriority // High to low
+                        }
+                        
+                        // Then sort by date (newest first)
+                        const aDate = a.extraFields?.deadline || a.createdAt
+                        const bDate = b.extraFields?.deadline || b.createdAt
+                        return new Date(bDate).getTime() - new Date(aDate).getTime()
+                      })
+                      .map(item => (
                       <Card
                         key={item.id}
                         draggable
@@ -2441,7 +2458,8 @@ function App() {
               })()}
             </div>
             
-            <div className="ml-auto">
+            <div className="ml-auto flex items-center gap-2">
+              <ThemeToggle />
               <Button 
                 onClick={openFieldsPanel}
                 variant="ghost"
@@ -2462,13 +2480,13 @@ function App() {
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-6">
               {[
-                { key: 'list', label: 'List', icon: '☰' },
-                { key: 'priority', label: 'Priority', icon: '⚡' },
-                { key: 'status', label: 'Status', icon: '📊' },
-                { key: 'date', label: 'Date', icon: '📅' },
-                { key: 'graph', label: 'Graph', icon: '🕸️' },
-                { key: 'timeline', label: 'Timeline', icon: '📈' },
-                { key: 'kanban', label: 'Kanban', icon: '📋' }
+                { key: 'kanban', label: 'Kanban', icon: '▢' },
+                { key: 'list', label: 'List', icon: '≡' },
+                { key: 'priority', label: 'By Priority', icon: '!' },
+                { key: 'status', label: 'By Status', icon: '●' },
+                { key: 'date', label: 'By Date', icon: '◐' },
+                { key: 'timeline', label: 'Timeline', icon: '—' },
+                { key: 'graph', label: 'Graph', icon: '○' }
               ].map(view => (
                 <Button
                   key={view.key}
