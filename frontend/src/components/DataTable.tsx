@@ -589,7 +589,7 @@ export function DataTable<TData, TValue>({
               <TableRow key={headerGroup.id}>
                 {headerGroup.headers.map((header) => {
                   return (
-                    <TableHead key={header.id} className="min-w-[120px]">
+                    <TableHead key={header.id} className="min-w-[120px] font-bold">
                       {header.isPlaceholder ? null : (
                         <div
                           className={header.column.getCanSort() ? "cursor-pointer select-none flex items-center gap-1" : "flex items-center gap-1"}
