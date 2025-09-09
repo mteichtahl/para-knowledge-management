@@ -425,6 +425,7 @@ function App() {
   const [selectedBucket, setSelectedBucket] = useState<string>('PROJECT')
   const [editingCell, setEditingCell] = useState<{itemId: string, field: string} | null>(null)
   const [editingValue, setEditingValue] = useState<Record<string, string>>({})
+  const [showLeftMenu, setShowLeftMenu] = useState(false)
   const [calendarDate, setCalendarDate] = useState(new Date())
   const [calendarView, setCalendarView] = useState<'month' | 'week' | 'day' | 'quarter'>('month')
   const [bucketFields, setBucketFields] = useState<Record<string, CustomField[]>>({})
@@ -487,6 +488,20 @@ function App() {
       }
     }
   }, [editingCell, items])
+
+  // Global escape key handler
+  useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (showPanel) {
+          setShowPanel(false)
+        }
+      }
+    }
+
+    document.addEventListener('keydown', handleEscape)
+    return () => document.removeEventListener('keydown', handleEscape)
+  }, [showPanel])
 
   useEffect(() => {
     // Close dropdown when clicking outside
@@ -2248,7 +2263,7 @@ function App() {
   const selectedBucketItems = filteredItems.filter(item => item.bucket === selectedBucket)
 
   return (
-    <div className="h-screen bg-white">
+    <div className="h-screen bg-white w-full">
       <style>{`
         select[multiple] option:checked {
           background: white !important;
@@ -2259,23 +2274,87 @@ function App() {
           color: black !important;
         }
       `}</style>
-      <div className="flex flex-col h-full">
+      
+      {/* Left Slide-out Menu */}
+      {showLeftMenu && (
+        <div className="fixed inset-0 z-50 flex">
+          {/* Backdrop */}
+          <div 
+            className="fixed inset-0 bg-black bg-opacity-50"
+            onClick={() => setShowLeftMenu(false)}
+          />
+          
+          {/* Menu Panel */}
+          <div className="relative bg-white w-80 h-full shadow-xl">
+            <div className="flex items-center justify-between p-6 border-b border-gray-200">
+              <h2 className="text-lg font-semibold text-gray-900">Navigation</h2>
+              <button
+                onClick={() => setShowLeftMenu(false)}
+                className="p-2 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            
+            <div className="p-6">
+              {/* Search */}
+              <div className="mb-6">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                  <input
+                    type="text"
+                    placeholder="Search..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-md focus:border-blue-500 focus:outline-none"
+                  />
+                </div>
+              </div>
+              
+              <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wide mb-4">PARA Buckets</h3>
+              <div className="space-y-2">
+                {/* Ordered buckets: Projects, Areas, Actions, Resources, Archives */}
+                {['PROJECT', 'AREA', 'ACTION', 'RESOURCE', 'ARCHIVE'].map((bucket) => {
+                  const config = bucketConfig[bucket as keyof typeof bucketConfig]
+                  const Icon = config.icon
+                  const bucketItems = filteredItems.filter(item => item.bucket === bucket)
+                  const isSelected = selectedBucket === bucket
+
+                  return (
+                    <button
+                      key={bucket}
+                      onClick={() => {
+                        setSelectedBucket(bucket)
+                      }}
+                      className={`w-full flex items-center px-4 py-3 rounded-lg transition-colors ${
+                        isSelected 
+                          ? 'bg-blue-50 text-blue-700 border border-blue-200' 
+                          : 'text-gray-600 hover:bg-gray-50 border border-transparent'
+                      }`}
+                    >
+                      <Icon className={`w-5 h-5 mr-3 ${config.color}`} />
+                      <span className="font-medium flex-1 text-left">{config.name}</span>
+                      <span className="text-xs bg-gray-200 text-gray-600 px-2 py-0.5 rounded-full">
+                        {bucketItems.length}
+                      </span>
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      <div className="w-full px-2">
+        <div className="flex flex-col h-full w-full">
         {/* Header */}
         <div className="border-b border-gray-200 p-6">
           <div className="flex items-center justify-between mb-4">
             <h1 className="text-2xl font-semibold text-gray-900">PARA System</h1>
             <div className="flex items-center gap-4">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                <input
-                  type="text"
-                  placeholder="Search..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-md focus:border-blue-500 focus:outline-none w-64"
-                />
-              </div>
-              
               <button 
                 onClick={openFieldsPanel}
                 className="flex items-center px-3 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-md"
@@ -2287,30 +2366,33 @@ function App() {
           </div>
 
           <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-6">
-              {Object.entries(bucketConfig).map(([bucket, config]) => {
+            <div className="flex items-center gap-4">
+              {/* Hamburger Menu Button */}
+              <button
+                onClick={() => setShowLeftMenu(true)}
+                className="flex items-center px-3 py-2 rounded-lg text-gray-600 hover:bg-gray-50 border border-gray-200"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+                <span className="ml-2 font-medium">Menu</span>
+              </button>
+              
+              {/* Current Bucket Display */}
+              {(() => {
+                const config = bucketConfig[selectedBucket as keyof typeof bucketConfig]
                 const Icon = config.icon
-                const bucketItems = filteredItems.filter(item => item.bucket === bucket)
-                const isSelected = selectedBucket === bucket
-
+                const bucketItems = filteredItems.filter(item => item.bucket === selectedBucket)
                 return (
-                  <button
-                    key={bucket}
-                    onClick={() => setSelectedBucket(bucket)}
-                    className={`flex items-center px-4 py-2 rounded-lg transition-colors ${
-                      isSelected 
-                        ? 'bg-blue-50 text-blue-700 border border-blue-200' 
-                        : 'text-gray-600 hover:bg-gray-50 border border-transparent'
-                    }`}
-                  >
+                  <div className="flex items-center px-4 py-2 bg-blue-50 text-blue-700 border border-blue-200 rounded-lg">
                     <Icon className={`w-5 h-5 mr-2 ${config.color}`} />
                     <span className="font-medium">{config.name}</span>
-                    <span className="ml-2 text-xs bg-gray-200 text-gray-600 px-2 py-0.5 rounded-full">
+                    <span className="ml-2 text-xs bg-blue-200 text-blue-700 px-2 py-0.5 rounded-full">
                       {bucketItems.length}
                     </span>
-                  </button>
+                  </div>
                 )
-              })}
+              })()}
             </div>
             
             <div className="relative">
@@ -3019,6 +3101,7 @@ function App() {
             )}
           </div>
         </div>
+      </div>
       </div>
     </div>
   )
