@@ -64,6 +64,12 @@ const bucketConfig = {
     color: 'text-green-600',
     description: 'Ongoing responsibilities requiring attention'
   },
+  ACTION: { 
+    name: 'Actions', 
+    icon: CheckSquare,
+    color: 'text-red-600',
+    description: 'Individual actionable tasks and next steps'
+  },
   RESOURCE: { 
     name: 'Resources', 
     icon: BookOpen,
@@ -75,21 +81,15 @@ const bucketConfig = {
     icon: Archive,
     color: 'text-gray-600',
     description: 'Inactive items for future reference'
-  },
-  ACTION: { 
-    name: 'Actions', 
-    icon: CheckSquare,
-    color: 'text-red-600',
-    description: 'Individual actionable tasks and next steps'
   }
 }
 
 const statuses = {
-  PROJECT: ['Next Up', 'Doing', 'In Review', 'On Hold', 'Wont Do', 'Completed'],
-  AREA: ['Next Up', 'Doing', 'In Review', 'On Hold', 'Wont Do', 'Completed'],
-  RESOURCE: ['Next Up', 'Doing', 'In Review', 'On Hold', 'Wont Do', 'Completed'],
-  ARCHIVE: ['Next Up', 'Doing', 'In Review', 'On Hold', 'Wont Do', 'Completed'],
-  ACTION: ['Next Up', 'Doing', 'In Review', 'On Hold', 'Wont Do', 'Completed']
+  PROJECT: ['Next Up', 'In Progress', 'In Review', 'On Hold', 'Wont Do', 'Completed'],
+  AREA: ['Next Up', 'In Progress', 'In Review', 'On Hold', 'Wont Do', 'Completed'],
+  RESOURCE: ['Next Up', 'In Progress', 'In Review', 'On Hold', 'Wont Do', 'Completed'],
+  ARCHIVE: ['Next Up', 'In Progress', 'In Review', 'On Hold', 'Wont Do', 'Completed'],
+  ACTION: ['Next Up', 'In Progress', 'In Review', 'On Hold', 'Wont Do', 'Completed']
 }
 
 const D3NetworkGraph: React.FC<{ items: Item[], itemRelationships: Record<string, any[]>, bucketConfig: any }> = ({ items, itemRelationships, bucketConfig }) => {
@@ -449,7 +449,7 @@ function App() {
   const [showAddField, setShowAddField] = useState(false)
   const [showBucketAssignments, setShowBucketAssignments] = useState(false)
   // Predefined fields that cannot be removed from buckets
-  const predefinedFields = ['priority', 'status', 'energy', 'startDate', 'endDate', 'owner']
+  const predefinedFields = ['priority', 'status', 'energy', 'startDate', 'endDate', 'owner', 'link', 'email']
   const [showCustomFields, setShowCustomFields] = useState(false)
   const [customFieldSearch, setCustomFieldSearch] = useState('')
   const [editingField, setEditingField] = useState<string | null>(null)
@@ -464,6 +464,15 @@ function App() {
   const [draggedGraphItem, setDraggedGraphItem] = useState<string | null>(null)
   const [itemOrder, setItemOrder] = useState<Record<string, string[]>>({})
   const [currentView, setCurrentView] = useState<'list' | 'priority' | 'status' | 'date' | 'timeline' | 'kanban' | 'graph'>('kanban')
+
+  // Set default view based on selected bucket
+  useEffect(() => {
+    if (selectedBucket === 'AREA') {
+      setCurrentView('list')
+    } else {
+      setCurrentView('kanban')
+    }
+  }, [selectedBucket])
   const [hiddenColumns, setHiddenColumns] = useState<Set<string>>(new Set(['Completed', 'On Hold', 'Wont Do']))
   const [columnOrder, setColumnOrder] = useState<Record<string, string[]>>({})
   const [draggedColumn, setDraggedColumn] = useState<string | null>(null)
@@ -636,11 +645,26 @@ function App() {
     loadAvailableItems()
   }
 
-  const openEditPanel = (item: Item) => {
+  const openEditPanel = async (item: Item) => {
     setPanelMode('edit')
     setPanelBucket(item.bucket)
     setCurrentEditItem(item)
-    setSelectedRelationships([])
+    
+    // Load existing relationships
+    try {
+      const response = await fetch(`/api/relationships/${item.id}`)
+      if (response.ok) {
+        const relationships = await response.json()
+        const relationshipIds = relationships.map((rel: any) => rel.childId)
+        setSelectedRelationships(relationshipIds)
+      } else {
+        setSelectedRelationships([])
+      }
+    } catch (error) {
+      console.error('Error loading relationships:', error)
+      setSelectedRelationships([])
+    }
+    
     setShowPanel(true)
     loadAvailableItems()
   }
@@ -887,7 +911,26 @@ function App() {
         header: "Title",
         cell: ({ row }) => (
           <div className="text-left min-w-[300px] max-w-[400px]">
-            <div className="font-medium">{row.getValue("title")}</div>
+            <div className="font-medium flex items-center gap-2">
+              {row.getValue("title")}
+              <button
+                onClick={(e) => {
+                  e.stopPropagation()
+                  setSelectedItemForNotes(row.original.id)
+                  loadNotes(row.original.id)
+                  setShowNotesPanel(true)
+                }}
+                className="p-1 text-gray-400 hover:text-gray-600 rounded flex items-center gap-1"
+                title="Notes"
+              >
+                <MessageSquare className="w-3 h-3" />
+                {notesCounts[row.original.id] > 0 && (
+                  <span className="text-[10px] text-gray-600">
+                    {notesCounts[row.original.id]}
+                  </span>
+                )}
+              </button>
+            </div>
             {row.original.description && (
               <p className="text-sm text-gray-600 mt-1 truncate">{row.original.description}</p>
             )}
@@ -964,9 +1007,17 @@ function App() {
           )
         },
       },
-      // Dynamic columns for all extraFields that have data
+      // Dynamic columns for all bucket fields (not just those with data)
       ...(() => {
+        const bucketFieldsForBucket = bucketFields[selectedBucket] || []
         const allExtraFields = new Set<string>()
+        
+        // Add all defined bucket fields
+        bucketFieldsForBucket.forEach(field => {
+          allExtraFields.add(field.name)
+        })
+        
+        // Also add any extra fields that have data but aren't in bucket fields
         filteredItems.forEach(item => {
           if (item.extraFields) {
             Object.keys(item.extraFields).forEach(key => {
@@ -1205,7 +1256,11 @@ function App() {
             if (fieldName === 'priority') {
               return (
                 <span 
-                  className="cursor-pointer hover:opacity-80 text-gray-700"
+                  className={`inline-flex items-center px-2 py-1 text-xs rounded-full cursor-pointer hover:opacity-80 ${
+                    value.toLowerCase() === 'high' ? 'bg-red-100 text-red-700' :
+                    value.toLowerCase() === 'medium' ? 'bg-yellow-100 text-yellow-700' :
+                    'bg-blue-100 text-blue-700'
+                  }`}
                   onClick={(e) => {
                     e.stopPropagation()
                     setEditingCell({itemId: row.original.id, field: fieldName})
@@ -1290,26 +1345,16 @@ function App() {
         cell: ({ row }) => {
           const relationships = itemRelationships[row.original.id]
           const projectRels = relationships?.filter(rel => {
-            const childBucket = rel.childBucket?.toLowerCase()
-            const parentBucket = rel.parentBucket?.toLowerCase()
-            return childBucket === 'projects' || parentBucket === 'projects' || 
-                   childBucket === 'project' || parentBucket === 'project'
+            // Show relationships where current item is parent OR child, but the other item is a project
+            return ((rel.parentId === row.original.id && (rel.childBucket?.toLowerCase() === 'project' || rel.childBucket?.toLowerCase() === 'projects')) ||
+                    (rel.childId === row.original.id && (rel.parentBucket?.toLowerCase() === 'project' || rel.parentBucket?.toLowerCase() === 'projects')))
           }) || []
           
-          // Remove duplicates by title
-          const uniqueProjects = projectRels.reduce((acc, rel) => {
-            const title = rel.childTitle || rel.parentTitle
-            if (title && !acc.some(item => item.title === title)) {
-              acc.push({ title, rel })
-            }
-            return acc
-          }, [] as Array<{title: string, rel: any}>)
-          
-          return uniqueProjects.length > 0 ? (
+          return projectRels.length > 0 ? (
             <div className="flex flex-wrap gap-1">
-              {uniqueProjects.map((item, idx) => (
+              {projectRels.map((rel, idx) => (
                 <span key={idx} className="inline-flex items-center px-1.5 py-0.5 bg-blue-50 text-blue-700 text-xs rounded">
-                  {item.title}
+                  {rel.parentId === row.original.id ? rel.childTitle : rel.parentTitle}
                 </span>
               ))}
             </div>
@@ -1323,26 +1368,16 @@ function App() {
         cell: ({ row }) => {
           const relationships = itemRelationships[row.original.id]
           const areaRels = relationships?.filter(rel => {
-            const childBucket = rel.childBucket?.toLowerCase()
-            const parentBucket = rel.parentBucket?.toLowerCase()
-            return childBucket === 'areas' || parentBucket === 'areas' || 
-                   childBucket === 'area' || parentBucket === 'area'
+            // Show relationships where current item is parent OR child, but the other item is an area
+            return ((rel.parentId === row.original.id && (rel.childBucket?.toLowerCase() === 'area' || rel.childBucket?.toLowerCase() === 'areas')) ||
+                    (rel.childId === row.original.id && (rel.parentBucket?.toLowerCase() === 'area' || rel.parentBucket?.toLowerCase() === 'areas')))
           }) || []
           
-          // Remove duplicates by title
-          const uniqueAreas = areaRels.reduce((acc, rel) => {
-            const title = rel.childTitle || rel.parentTitle
-            if (title && !acc.some(item => item.title === title)) {
-              acc.push({ title, rel })
-            }
-            return acc
-          }, [] as Array<{title: string, rel: any}>)
-          
-          return uniqueAreas.length > 0 ? (
+          return areaRels.length > 0 ? (
             <div className="flex flex-wrap gap-1">
-              {uniqueAreas.map((item, idx) => (
+              {areaRels.map((rel, idx) => (
                 <span key={idx} className="inline-flex items-center px-1.5 py-0.5 bg-green-50 text-green-700 text-xs rounded">
-                  {item.title}
+                  {rel.parentId === row.original.id ? rel.childTitle : rel.parentTitle}
                 </span>
               ))}
             </div>
@@ -1356,26 +1391,16 @@ function App() {
         cell: ({ row }) => {
           const relationships = itemRelationships[row.original.id]
           const resourceRels = relationships?.filter(rel => {
-            const childBucket = rel.childBucket?.toLowerCase()
-            const parentBucket = rel.parentBucket?.toLowerCase()
-            return childBucket === 'resources' || parentBucket === 'resources' || 
-                   childBucket === 'resource' || parentBucket === 'resource'
+            // Show relationships where current item is parent OR child, but the other item is a resource
+            return ((rel.parentId === row.original.id && (rel.childBucket?.toLowerCase() === 'resource' || rel.childBucket?.toLowerCase() === 'resources')) ||
+                    (rel.childId === row.original.id && (rel.parentBucket?.toLowerCase() === 'resource' || rel.parentBucket?.toLowerCase() === 'resources')))
           }) || []
           
-          // Remove duplicates by title
-          const uniqueResources = resourceRels.reduce((acc, rel) => {
-            const title = rel.childTitle || rel.parentTitle
-            if (title && !acc.some(item => item.title === title)) {
-              acc.push({ title, rel })
-            }
-            return acc
-          }, [] as Array<{title: string, rel: any}>)
-          
-          return uniqueResources.length > 0 ? (
+          return resourceRels.length > 0 ? (
             <div className="flex flex-wrap gap-1">
-              {uniqueResources.map((item, idx) => (
+              {resourceRels.map((rel, idx) => (
                 <span key={idx} className="inline-flex items-center px-1.5 py-0.5 bg-yellow-50 text-yellow-700 text-xs rounded">
-                  {item.title}
+                  {rel.parentId === row.original.id ? rel.childTitle : rel.parentTitle}
                 </span>
               ))}
             </div>
@@ -1389,50 +1414,21 @@ function App() {
         cell: ({ row }) => {
           const relationships = itemRelationships[row.original.id]
           const actionRels = relationships?.filter(rel => {
-            const childBucket = rel.childBucket?.toLowerCase()
-            const parentBucket = rel.parentBucket?.toLowerCase()
-            return childBucket === 'actions' || parentBucket === 'actions' || 
-                   childBucket === 'action' || parentBucket === 'action'
+            // Show relationships where current item is parent OR child, but the other item is an action
+            return ((rel.parentId === row.original.id && (rel.childBucket?.toLowerCase() === 'action' || rel.childBucket?.toLowerCase() === 'actions')) ||
+                    (rel.childId === row.original.id && (rel.parentBucket?.toLowerCase() === 'action' || rel.parentBucket?.toLowerCase() === 'actions')))
           }) || []
           
-          // Remove duplicates by title
-          const uniqueActions = actionRels.reduce((acc, rel) => {
-            const title = rel.childTitle || rel.parentTitle
-            if (title && !acc.some(item => item.title === title)) {
-              acc.push({ title, rel })
-            }
-            return acc
-          }, [] as Array<{title: string, rel: any}>)
-          
-          return uniqueActions.length > 0 ? (
+          return actionRels.length > 0 ? (
             <div className="flex flex-wrap gap-1">
-              {uniqueActions.map((item, idx) => (
+              {actionRels.map((rel, idx) => (
                 <span key={idx} className="inline-flex items-center px-1.5 py-0.5 bg-red-50 text-red-700 text-xs rounded">
-                  {item.title}
+                  {rel.parentId === row.original.id ? rel.childTitle : rel.parentTitle}
                 </span>
               ))}
             </div>
           ) : null
         },
-      },
-      {
-        id: "notes",
-        header: "",
-        cell: ({ row }) => (
-          <button
-            onClick={(e) => {
-              e.stopPropagation()
-              setSelectedItemForNotes(row.original.id)
-              loadNotes(row.original.id)
-              setShowNotesPanel(true)
-            }}
-            className="p-1 text-gray-400 hover:text-gray-600 rounded"
-            title="Notes"
-          >
-            <MessageSquare className="w-4 h-4" />
-          </button>
-        ),
-        size: 40,
       },
     ]
 
@@ -1460,7 +1456,7 @@ function App() {
     const priorityLabels = { high: 'High Priority', medium: 'Medium Priority', low: 'Low Priority', none: 'No Priority' }
     const priorityColors = { 
       high: 'border-red-200 bg-red-50', 
-      medium: 'border-orange-200 bg-orange-50', 
+      medium: 'border-yellow-200 bg-yellow-50', 
       low: 'border-blue-200 bg-blue-50', 
       none: 'border-gray-200 bg-gray-50' 
     }
@@ -2663,7 +2659,7 @@ function App() {
           </SidebarFooter>
         </Sidebar>
         
-        <SidebarInset>
+        <SidebarInset style={{ marginLeft: '16rem', maxWidth: 'calc(100vw - 24rem)' }}>
           <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
             <SidebarTrigger className="-ml-1" />
             <div>
@@ -2711,7 +2707,10 @@ function App() {
           {/* View Selector and Create Button */}
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-6">
-              {[
+              {(selectedBucket === 'RESOURCE' ? [
+                { key: 'list', label: 'List', icon: '≡' },
+                { key: 'graph', label: 'Graph', icon: '○' }
+              ] : [
                 { key: 'kanban', label: 'Kanban', icon: '▢' },
                 { key: 'list', label: 'List', icon: '≡' },
                 { key: 'priority', label: 'By Priority', icon: '!' },
@@ -2719,7 +2718,7 @@ function App() {
                 { key: 'date', label: 'By Date', icon: '◐' },
                 { key: 'timeline', label: 'Timeline', icon: '—' },
                 { key: 'graph', label: 'Graph', icon: '○' }
-              ].map(view => (
+              ]).map(view => (
                 <Button
                   key={view.key}
                   onClick={() => setCurrentView(view.key as any)}
@@ -2797,7 +2796,7 @@ function App() {
           </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto p-6">
+        <div className="flex-1 overflow-x-auto overflow-y-auto p-6">
           {selectedBucketItems.length === 0 ? (
             <div className="text-center py-12">
               <div className="text-gray-400 mb-4">
@@ -2974,7 +2973,7 @@ function App() {
                   </div>
                   
                   {(showCustomFields || customFieldSearch) && (
-                    <div className="border-t border-gray-200 p-3 space-y-2 max-h-96 overflow-y-auto">
+                    <div className="border-t border-gray-200 p-3 space-y-2 flex-1 overflow-y-auto">
                       {(() => {
                         const filteredFields = customFields.filter(field => 
                           !customFieldSearch || 
@@ -3524,7 +3523,57 @@ function App() {
 
                   {/* Save button for new items */}
                   {panelMode === 'add' && (
-                    <div className="flex justify-end pt-4 border-t">
+                    <>
+                      {/* Relationships Section for Add Mode */}
+                      <div className="pt-4 border-t">
+                        <h4 className="font-medium mb-2">Relationships</h4>
+                        <div className="space-y-3">
+                          {Object.entries(bucketConfig).map(([bucket, config]) => {
+                            const bucketItems = availableItems.filter(item => 
+                              item.bucket === bucket && 
+                              (panelMode === 'edit' ? item.id !== currentEditItem?.id : item.bucket !== panelBucket)
+                            )
+                            if (bucketItems.length === 0) return null
+                            
+                            const Icon = config.icon
+                            return (
+                              <details key={bucket} className="border rounded">
+                                <summary className="flex items-center gap-2 p-2 cursor-pointer hover:bg-gray-50">
+                                  <Icon className={`w-4 h-4 ${config.color}`} />
+                                  <span className="font-medium">{config.name}</span>
+                                  <span className="text-xs text-gray-500 ml-auto">
+                                    ({selectedRelationships.filter(id => bucketItems.some(item => item.id === id)).length}/{bucketItems.length})
+                                  </span>
+                                </summary>
+                                <div className="p-2 pt-0 space-y-1 max-h-32 overflow-y-auto">
+                                  {bucketItems.map((item: any) => (
+                                    <div key={item.id} className="flex items-center space-x-2 py-1">
+                                      <input
+                                        type="checkbox"
+                                        id={`rel-${item.id}`}
+                                        checked={selectedRelationships.includes(item.id)}
+                                        onChange={(e) => {
+                                          if (e.target.checked) {
+                                            setSelectedRelationships([...selectedRelationships, item.id])
+                                          } else {
+                                            setSelectedRelationships(selectedRelationships.filter(id => id !== item.id))
+                                          }
+                                        }}
+                                        className="rounded"
+                                      />
+                                      <label htmlFor={`rel-${item.id}`} className="text-sm cursor-pointer flex-1">
+                                        {item.title}
+                                      </label>
+                                    </div>
+                                  ))}
+                                </div>
+                              </details>
+                            )
+                          })}
+                        </div>
+                      </div>
+                      
+                      <div className="flex justify-end pt-4 border-t">
                       <Button 
                         onClick={async () => {
                           console.log('Create button clicked')
@@ -3546,9 +3595,29 @@ function App() {
                           
                           console.log('createItem returned:', newItem)
                           
+                          // Add relationships if any selected
+                          if (newItem && selectedRelationships.length > 0) {
+                            for (const relatedId of selectedRelationships) {
+                              try {
+                                await fetch('/api/relationships', {
+                                  method: 'POST',
+                                  headers: { 'Content-Type': 'application/json' },
+                                  body: JSON.stringify({ 
+                                    parentId: newItem.id, 
+                                    childId: relatedId, 
+                                    relationship: 'related' 
+                                  })
+                                })
+                              } catch (error) {
+                                console.error('Error adding relationship:', error)
+                              }
+                            }
+                          }
+                          
                           if (newItem) {
                             setShowPanel(false)
                             setFormData({status: "Next Up"})
+                            setSelectedRelationships([])
                           }
                         }}
                         disabled={!formData.title?.trim()}
@@ -3558,6 +3627,7 @@ function App() {
                         Create {bucketConfig[panelBucket as keyof typeof bucketConfig]?.name.slice(0, -1)}
                       </Button>
                     </div>
+                    </>
                   )}
 
                 </div>

@@ -5,7 +5,7 @@ CREATE EXTENSION IF NOT EXISTS vector;
 CREATE TYPE bucket_type AS ENUM ('PROJECT', 'AREA', 'RESOURCE', 'ARCHIVE', 'ACTION');
 
 -- Create field type enum
-CREATE TYPE field_type AS ENUM ('text', 'boolean', 'array', 'date', 'datetime');
+CREATE TYPE field_type AS ENUM ('text', 'boolean', 'array', 'date', 'datetime', 'url', 'email');
 
 -- Create custom field definitions table
 CREATE TABLE custom_fields (
@@ -82,35 +82,35 @@ CREATE TABLE notes (
 INSERT INTO statuses (bucket, name, "order") VALUES
 -- Projects
 ('PROJECT', 'Next Up', 1),
-('PROJECT', 'Doing', 2),
+('PROJECT', 'In Progress', 2),
 ('PROJECT', 'In Review', 3),
 ('PROJECT', 'On Hold', 4),
 ('PROJECT', 'Wont Do', 5),
 ('PROJECT', 'Completed', 6),
 -- Areas
 ('AREA', 'Next Up', 1),
-('AREA', 'Doing', 2),
+('AREA', 'In Progress', 2),
 ('AREA', 'In Review', 3),
 ('AREA', 'On Hold', 4),
 ('AREA', 'Wont Do', 5),
 ('AREA', 'Completed', 6),
 -- Resources
 ('RESOURCE', 'Next Up', 1),
-('RESOURCE', 'Doing', 2),
+('RESOURCE', 'In Progress', 2),
 ('RESOURCE', 'In Review', 3),
 ('RESOURCE', 'On Hold', 4),
 ('RESOURCE', 'Wont Do', 5),
 ('RESOURCE', 'Completed', 6),
 -- Archive
 ('ARCHIVE', 'Next Up', 1),
-('ARCHIVE', 'Doing', 2),
+('ARCHIVE', 'In Progress', 2),
 ('ARCHIVE', 'In Review', 3),
 ('ARCHIVE', 'On Hold', 4),
 ('ARCHIVE', 'Wont Do', 5),
 ('ARCHIVE', 'Completed', 6),
 -- Actions
 ('ACTION', 'Next Up', 1),
-('ACTION', 'Doing', 2),
+('ACTION', 'In Progress', 2),
 ('ACTION', 'In Review', 3),
 ('ACTION', 'On Hold', 4),
 ('ACTION', 'Wont Do', 5),
@@ -136,13 +136,13 @@ INSERT INTO custom_fields (name, label, type, description, default_value, array_
 INSERT INTO custom_fields (name, label, type, description, default_value, array_options, multi_select) VALUES
 ('owner', 'Owner', 'text', 'Owner', null, null, false);
 
--- Insert test custom field
-INSERT INTO custom_fields (name, label, type, description, default_value, array_options, multi_select) VALUES
-('test', 'Test Field', 'text', 'Test field', null, null, false);
-
 -- Insert email custom field
 INSERT INTO custom_fields (name, label, type, description, default_value, array_options, multi_select) VALUES
-('email', 'Email', 'text', 'Email address', null, null, false);
+('email', 'Email', 'email', 'Email address', null, null, false);
+
+-- Insert Link custom field for Resources
+INSERT INTO custom_fields (name, label, type, description, default_value, array_options, multi_select) VALUES
+('link', 'Link', 'url', 'External link or reference for this resource', null, null, false);
 
 -- Assign priority field as required to Projects, Areas, and Actions only
 INSERT INTO bucket_fields (bucket, field_id, required) VALUES
@@ -176,10 +176,10 @@ INSERT INTO bucket_fields (bucket, field_id, required) VALUES
 ('ARCHIVE', (SELECT id FROM custom_fields WHERE name = 'owner'), false),
 ('ACTION', (SELECT id FROM custom_fields WHERE name = 'owner'), false);
 
--- Assign test field as optional to Projects only
-INSERT INTO bucket_fields (bucket, field_id, required) VALUES
-('PROJECT', (SELECT id FROM custom_fields WHERE name = 'test'), false);
-
 -- Assign email field as optional to Projects only
 INSERT INTO bucket_fields (bucket, field_id, required) VALUES
 ('PROJECT', (SELECT id FROM custom_fields WHERE name = 'email'), false);
+
+-- Assign Link field to Resources
+INSERT INTO bucket_fields (bucket, field_id, required) VALUES
+('RESOURCE', (SELECT id FROM custom_fields WHERE name = 'link'), false);

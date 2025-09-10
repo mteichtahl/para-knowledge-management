@@ -10,7 +10,7 @@ interface CustomField {
   defaultValue?: any
 }
 
-const buckets = ['PROJECT', 'AREA', 'RESOURCE', 'ARCHIVE', 'ACTION']
+const buckets = ['PROJECT', 'AREA', 'ACTION', 'RESOURCE', 'ARCHIVE']
 
 function Fields() {
   const [fields, setFields] = useState<CustomField[]>([])

@@ -119,6 +119,17 @@
                     </div>
                 </div>
                 
+                <div class="bucket-section bucket action">
+                    <div class="bucket-title">Actions</div>
+                    <div class="assigned-fields" id="action-fields"></div>
+                    <div class="field-assignment">
+                        <select id="action-field-select" class="form-select" style="flex: 1;">
+                            <option value="">Select field to add...</option>
+                        </select>
+                        <button onclick="assignField('ACTION')" class="btn btn-secondary">Add</button>
+                    </div>
+                </div>
+                
                 <div class="bucket-section bucket resource">
                     <div class="bucket-title">Resources</div>
                     <div class="assigned-fields" id="resource-fields"></div>
@@ -140,14 +151,6 @@
                         <button onclick="assignField('ARCHIVE')" class="btn btn-secondary">Add</button>
                     </div>
                 </div>
-                
-                <div class="bucket-section bucket action">
-                    <div class="bucket-title">Actions</div>
-                    <div class="assigned-fields" id="action-fields"></div>
-                    <div class="field-assignment">
-                        <select id="action-field-select" class="form-select" style="flex: 1;">
-                            <option value="">Select field to add...</option>
-                        </select>
                         <button onclick="assignField('ACTION')" class="btn btn-secondary">Add</button>
                     </div>
                 </div>
@@ -217,7 +220,7 @@
         }
         
         function updateFieldSelects() {
-            const buckets = ['project', 'area', 'resource', 'archive', 'action'];
+            const buckets = ['project', 'area', 'action', 'resource', 'archive'];
             buckets.forEach(bucket => {
                 const select = document.getElementById(`${bucket}-field-select`);
                 select.innerHTML = '<option value="">Select field to add...</option>' +
@@ -226,7 +229,7 @@
         }
         
         async function loadBucketFields() {
-            const buckets = ['PROJECT', 'AREA', 'RESOURCE', 'ARCHIVE', 'ACTION'];
+            const buckets = ['PROJECT', 'AREA', 'ACTION', 'RESOURCE', 'ARCHIVE'];
             for (const bucket of buckets) {
                 try {
                     const response = await fetch(`/api/bucket-fields/${bucket}`);
