@@ -33,11 +33,17 @@ NOTES: ${allNotes.map(n => n.content).join('\n')}
       'Connection': 'keep-alive'
     });
 
-    for await (const chunk of bedrockService.streamSummary(content)) {
-      res.write(chunk);
+    try {
+      for await (const chunk of bedrockService.streamSummary(content)) {
+        res.write(chunk);
+      }
+      res.end();
+    } catch (streamError) {
+      console.error('Error during streaming:', streamError);
+      const errorMessage = streamError instanceof Error ? streamError.message : 'Failed to generate summary';
+      res.write(`\n\nError: ${errorMessage}`);
+      res.end();
     }
-    
-    res.end();
   } catch (error) {
     console.error('Error generating summary:', error);
     res.status(500).json({ error: 'Failed to generate summary' });

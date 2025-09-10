@@ -46,7 +46,7 @@ export function MainSidebar({
         </SidebarGroup>
         
         <SidebarGroup>
-          <SidebarGroupLabel>PARA Buckets</SidebarGroupLabel>
+          
           <SidebarGroupContent>
             <SidebarMenu>
               {['PROJECT', 'AREA', 'ACTION', 'RESOURCE', 'ARCHIVE'].map((bucket) => {

@@ -2607,7 +2607,6 @@ function App() {
           </SidebarHeader>
           <SidebarContent>
             <SidebarGroup>
-              <SidebarGroupLabel>Search</SidebarGroupLabel>
               <SidebarGroupContent>
                 <div className="px-4 py-2">
                   <div className="relative">
@@ -2625,7 +2624,6 @@ function App() {
             </SidebarGroup>
             
             <SidebarGroup>
-              <SidebarGroupLabel>PARA Buckets</SidebarGroupLabel>
               <SidebarGroupContent>
                 <SidebarMenu>
                   {['PROJECT', 'AREA', 'ACTION', 'RESOURCE', 'ARCHIVE'].map((bucket) => {
@@ -2643,7 +2641,7 @@ function App() {
                         >
                           <Icon className={`w-4 h-4 ${config.color}`} />
                           <span>{config.name}</span>
-                          <span className="ml-auto text-xs bg-gray-200 text-gray-600 px-2 py-0.5 rounded-full">
+                          <span className="ml-auto text-xs text-gray-600">
                             {bucketItems.length}
                           </span>
                         </SidebarMenuButton>

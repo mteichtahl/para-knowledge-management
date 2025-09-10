@@ -183,3 +183,56 @@ INSERT INTO bucket_fields (bucket, field_id, required) VALUES
 -- Assign Link field to Resources
 INSERT INTO bucket_fields (bucket, field_id, required) VALUES
 ('RESOURCE', (SELECT id FROM custom_fields WHERE name = 'link'), false);
+
+-- Insert sample data for testing all aspects of the system
+
+-- PROJECTS - Short-term efforts with specific outcomes
+INSERT INTO items (bucket, title, description, status, extra_fields) VALUES
+('PROJECT', 'Website Redesign', 'Complete overhaul of company website with modern design and improved UX', 'In Progress', 
+ '{"priority": "High", "energy": "High", "startDate": "2025-01-15", "endDate": "2025-03-30", "owner": "Sarah Chen", "email": "sarah.chen@company.com"}'),
+('PROJECT', 'Mobile App Launch', 'Develop and launch iOS/Android app for customer engagement', 'Next Up',
+ '{"priority": "High", "energy": "Medium", "startDate": "2025-02-01", "endDate": "2025-06-15", "owner": "Mike Rodriguez", "email": "mike.rodriguez@company.com"}'),
+('PROJECT', 'Team Retreat Planning', 'Organize quarterly team retreat including venue, activities, and logistics', 'On Hold',
+ '{"priority": "Medium", "energy": "Low", "startDate": "2025-03-01", "endDate": "2025-04-15", "owner": "Lisa Park"}');
+
+-- AREAS - Ongoing responsibilities to maintain  
+INSERT INTO items (bucket, title, description, status, extra_fields) VALUES
+('AREA', 'Customer Support Excellence', 'Maintain high-quality customer support with <2hr response time', 'Active',
+ '{"priority": "High", "energy": "Medium", "owner": "Jennifer Walsh", "email": "jennifer.walsh@company.com"}'),
+('AREA', 'Team Development & Training', 'Ongoing professional development and skill building for team members', 'Active',
+ '{"priority": "Medium", "energy": "Medium", "owner": "David Kim"}'),
+('AREA', 'Security & Compliance', 'Maintain security standards and regulatory compliance', 'Needs Attention',
+ '{"priority": "High", "energy": "High", "owner": "Alex Thompson", "email": "alex.thompson@company.com"}');
+
+-- ACTIONS - Individual actionable tasks
+INSERT INTO items (bucket, title, description, status, extra_fields) VALUES
+('ACTION', 'Review wireframes for homepage', 'Provide feedback on new homepage wireframes from design team', 'Next',
+ '{"priority": "High", "energy": "Low", "endDate": "2025-01-25", "owner": "Sarah Chen"}'),
+('ACTION', 'Schedule user interviews', 'Set up 5 user interviews for mobile app research', 'Waiting',
+ '{"priority": "Medium", "energy": "Medium", "endDate": "2025-02-05", "owner": "Mike Rodriguez"}'),
+('ACTION', 'Update security documentation', 'Revise security policies and incident response procedures', 'Someday',
+ '{"priority": "Medium", "energy": "High", "owner": "Alex Thompson"}'),
+('ACTION', 'Book venue for team retreat', 'Research and book location for Q2 team retreat', 'Next',
+ '{"priority": "Low", "energy": "Low", "endDate": "2025-02-15", "owner": "Lisa Park"}'),
+('ACTION', 'Conduct quarterly performance reviews', 'Complete performance reviews for all direct reports', 'Done',
+ '{"priority": "High", "energy": "High", "startDate": "2025-01-01", "endDate": "2025-01-15", "owner": "David Kim"}');
+
+-- RESOURCES - Reference materials for future use
+INSERT INTO items (bucket, title, description, status, extra_fields) VALUES
+('RESOURCE', 'UX Design Best Practices', 'Collection of articles, tools, and guidelines for user experience design', 'Available',
+ '{"link": "https://uxdesign.cc/best-practices", "owner": "Sarah Chen"}'),
+('RESOURCE', 'Mobile Development Framework Comparison', 'Research comparing React Native, Flutter, and native development approaches', 'In Use',
+ '{"link": "https://github.com/company/mobile-framework-research", "owner": "Mike Rodriguez"}'),
+('RESOURCE', 'Security Compliance Checklist', 'Comprehensive checklist for SOC2 and GDPR compliance requirements', 'Available',
+ '{"link": "https://docs.company.com/security/compliance", "owner": "Alex Thompson"}'),
+('RESOURCE', 'Remote Team Management Guide', 'Best practices and tools for managing distributed teams effectively', 'Available',
+ '{"link": "https://remote.co/management-guide", "owner": "David Kim"}'),
+('RESOURCE', 'Customer Feedback Analysis Tools', 'List of tools and methodologies for analyzing customer feedback', 'Outdated',
+ '{"link": "https://tools.company.com/feedback-analysis", "owner": "Jennifer Walsh"}');
+
+-- ARCHIVES - Inactive items from other buckets
+INSERT INTO items (bucket, title, description, status, extra_fields) VALUES
+('ARCHIVE', 'Q4 2024 Marketing Campaign', 'Holiday season marketing campaign - completed successfully', 'Archived',
+ '{"priority": "High", "startDate": "2024-10-01", "endDate": "2024-12-31", "owner": "Marketing Team"}'),
+('ARCHIVE', 'Legacy System Migration', 'Migration from old CRM to new platform - completed Q3 2024', 'Archived',
+ '{"priority": "High", "startDate": "2024-07-01", "endDate": "2024-09-30", "owner": "IT Team"}');
