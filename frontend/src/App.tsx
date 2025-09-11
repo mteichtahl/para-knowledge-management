@@ -1043,7 +1043,8 @@ function App() {
         filteredItems.forEach(item => {
           if (item.extraFields) {
             Object.keys(item.extraFields).forEach(key => {
-              if (item.extraFields![key] !== null && item.extraFields![key] !== undefined && item.extraFields![key] !== '') {
+              // Exclude tags since we have a dedicated tags column
+              if (key !== 'tags' && item.extraFields![key] !== null && item.extraFields![key] !== undefined && item.extraFields![key] !== '') {
                 allExtraFields.add(key)
               }
             })
@@ -1359,6 +1360,95 @@ function App() {
         }
       })
       })(),
+      // Tags column
+      {
+        accessorKey: "tags",
+        header: "Tags",
+        size: 300,
+        cell: ({ row }) => {
+          const tags = row.original.tags || []
+          const isEditing = editingCell?.itemId === row.original.id && editingCell?.field === 'tags'
+          
+          if (isEditing) {
+            return (
+              <div onClick={(e) => e.stopPropagation()} className="relative">
+                <div className="flex flex-wrap gap-1 mb-2">
+                  {tags.map(tag => (
+                    <Badge key={tag} variant="outline" className="bg-blue-50 text-blue-600 text-xs flex items-center gap-1">
+                      {tag}
+                      <X 
+                        className="w-3 h-3 cursor-pointer" 
+                        onClick={async () => {
+                          const newTags = tags.filter(t => t !== tag)
+                          try {
+                            await updateItem(row.original.id, row.original.title, row.original.description, row.original.status, row.original.extraFields || {}, undefined, newTags)
+                            loadItems()
+                          } catch (error) {
+                            console.error('Failed to update tags:', error)
+                          }
+                        }}
+                      />
+                    </Badge>
+                  ))}
+                </div>
+                <input
+                  type="text"
+                  placeholder="Type tag and press Enter"
+                  onKeyDown={async (e) => {
+                    if (e.key === 'Enter' && e.currentTarget.value.trim()) {
+                      const newTag = e.currentTarget.value.trim()
+                      if (!tags.includes(newTag)) {
+                        const newTags = [...tags, newTag]
+                        try {
+                          await updateItem(row.original.id, row.original.title, row.original.description, row.original.status, row.original.extraFields || {}, undefined, newTags)
+                          e.currentTarget.value = ''
+                          loadItems()
+                        } catch (error) {
+                          console.error('Failed to update tags:', error)
+                        }
+                      }
+                    }
+                    if (e.key === 'Escape') {
+                      setEditingCell(null)
+                    }
+                  }}
+                  onBlur={() => {
+                    setTimeout(() => setEditingCell(null), 100)
+                  }}
+                  autoFocus
+                  className="px-2 py-1 text-xs border rounded w-full"
+                />
+              </div>
+            )
+          }
+          
+          return tags.length > 0 ? (
+            <div 
+              className="flex flex-wrap gap-1 cursor-pointer hover:bg-gray-50 p-1 rounded"
+              onClick={(e) => {
+                e.stopPropagation()
+                setEditingCell({itemId: row.original.id, field: 'tags'})
+              }}
+            >
+              {tags.map(tag => (
+                <Badge key={tag} variant="outline" className="bg-blue-50 text-blue-600 text-xs">
+                  {tag}
+                </Badge>
+              ))}
+            </div>
+          ) : (
+            <div 
+              className="text-gray-400 cursor-pointer hover:bg-gray-50 p-1 rounded text-xs"
+              onClick={(e) => {
+                e.stopPropagation()
+                setEditingCell({itemId: row.original.id, field: 'tags'})
+              }}
+            >
+              Click to add tags
+            </div>
+          )
+        },
+      },
       // Separate relationship columns for each bucket
       {
         id: "projects",
@@ -1590,12 +1680,16 @@ function App() {
                             {item.extraFields.energy}
                           </Badge>
                         )}
-                        {item.tags && item.tags.length > 0 && item.tags.map(tag => (
-                          <Badge key={tag} variant="outline" className="bg-gray-100 text-gray-600 text-xs">
-                            {tag}
-                          </Badge>
-                        ))}
                       </div>
+                      {item.tags && item.tags.length > 0 && (
+                        <div className="flex items-center gap-1 flex-wrap mt-2">
+                          {item.tags.map(tag => (
+                            <Badge key={tag} variant="outline" className="bg-gray-100 text-gray-600 text-[10px] px-1.5 py-0.5">
+                              {tag}
+                            </Badge>
+                          ))}
+                        </div>
+                      )}
                     </CardContent>
                   </Card>
                 ))}
@@ -2145,12 +2239,16 @@ function App() {
                               {item.extraFields.energy}
                             </Badge>
                           )}
-                          {item.tags && item.tags.length > 0 && item.tags.map(tag => (
-                            <Badge key={tag} variant="outline" className="bg-gray-100 text-gray-600 text-xs">
-                              {tag}
-                            </Badge>
-                          ))}
                         </div>
+                        {item.tags && item.tags.length > 0 && (
+                          <div className="flex items-center gap-1 flex-wrap mt-2">
+                            {item.tags.map(tag => (
+                              <Badge key={tag} variant="outline" className="bg-blue-50 text-blue-600 text-[10px] px-1.5 py-0.5">
+                                {tag}
+                              </Badge>
+                            ))}
+                          </div>
+                        )}
                       </CardContent>
                     </Card>
                   ))}
@@ -2372,12 +2470,16 @@ function App() {
                                 {item.extraFields.energy}
                               </Badge>
                             )}
-                            {item.tags && item.tags.length > 0 && item.tags.map(tag => (
-                              <Badge key={tag} variant="outline" className="bg-gray-100 text-gray-600 text-xs">
-                                {tag}
-                              </Badge>
-                            ))}
                           </div>
+                          {item.tags && item.tags.length > 0 && (
+                            <div className="flex items-center gap-1 flex-wrap mt-2">
+                              {item.tags.map(tag => (
+                                <Badge key={tag} variant="outline" className="bg-blue-50 text-blue-600 text-[10px] px-1.5 py-0.5">
+                                  {tag}
+                                </Badge>
+                              ))}
+                            </div>
+                          )}
                         </CardContent>
                       </Card>
                     ))}
