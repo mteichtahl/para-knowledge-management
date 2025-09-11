@@ -467,7 +467,7 @@ function App() {
   const [selectedGraphItem, setSelectedGraphItem] = useState<string | null>(null)
   const [draggedGraphItem, setDraggedGraphItem] = useState<string | null>(null)
   const [itemOrder, setItemOrder] = useState<Record<string, string[]>>({})
-  const [currentView, setCurrentView] = useState<'list' | 'priority' | 'status' | 'date' | 'timeline' | 'kanban' | 'graph'>('kanban')
+  const [currentView, setCurrentView] = useState<'list' | 'priority' | 'status' | 'date' | 'timeline' | 'kanban' | 'graph' | 'tags'>('kanban')
 
   // Set default view based on selected bucket
   useEffect(() => {
@@ -919,11 +919,148 @@ function App() {
         )
       case 'timeline':
         return renderTimelineView(items)
+      case 'tags':
+        return renderTagsView(items)
       case 'kanban':
         return renderKanbanView(items)
       default:
         return renderListView(items)
     }
+  }
+
+  const renderTagsView = (items: Item[]) => {
+    // Get all unique tags
+    const allTagsSet = new Set<string>()
+    items.forEach(item => {
+      if (item.tags) {
+        item.tags.forEach(tag => allTagsSet.add(tag))
+      }
+    })
+    
+    const allTagsList = Array.from(allTagsSet).sort()
+    
+    // Group items by tags
+    const tagGroups: Record<string, Item[]> = {}
+    const untaggedItems: Item[] = []
+    
+    // Initialize tag groups
+    allTagsList.forEach(tag => {
+      tagGroups[tag] = []
+    })
+    
+    // Categorize items
+    items.forEach(item => {
+      if (!item.tags || item.tags.length === 0) {
+        untaggedItems.push(item)
+      } else {
+        item.tags.forEach(tag => {
+          if (tagGroups[tag]) {
+            tagGroups[tag].push(item)
+          }
+        })
+      }
+    })
+    
+    // Add untagged group if there are untagged items
+    if (untaggedItems.length > 0) {
+      tagGroups['No Tags'] = untaggedItems
+    }
+    
+    return (
+      <div className="flex gap-6 overflow-x-auto pb-4">
+        {Object.entries(tagGroups).map(([tag, tagItems]) => (
+          <div key={tag} className="flex-shrink-0 w-80 border border-blue-200 bg-blue-50 rounded-lg">
+            <div className="p-4 border-b border-blue-200">
+              <h3 className="font-medium text-sm text-blue-700">
+                {tag} ({tagItems.length})
+              </h3>
+            </div>
+            <div className="p-4 space-y-3 max-h-[calc(100vh-200px)] overflow-y-auto">
+              {tagItems.map(item => (
+                <Card 
+                  key={item.id} 
+                  className="cursor-pointer hover:shadow-md transition-shadow bg-white"
+                  onClick={() => openEditPanel(item)}
+                  draggable
+                  onDragStart={(e) => {
+                    e.dataTransfer.setData('text/plain', item.id)
+                    setDraggedItem(item.id)
+                  }}
+                  onDragEnd={() => setDraggedItem(null)}
+                >
+                  <CardContent className="p-3">
+                    <div className="flex items-start justify-between mb-2">
+                      <h4 className="font-medium text-sm text-left flex-1">{item.title}</h4>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setSelectedItemForNotes(item.id)
+                          loadNotes(item.id)
+                          setShowNotesPanel(true)
+                        }}
+                        className="p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded transition-colors flex items-center gap-1"
+                        title="View notes"
+                      >
+                        <MessageSquare className="w-3 h-3" />
+                        {notesCounts[item.id] > 0 && (
+                          <span className="text-[10px] text-gray-600">
+                            {notesCounts[item.id]}
+                          </span>
+                        )}
+                      </button>
+                    </div>
+                    {(item.extraFields?.startDate || item.extraFields?.endDate) && (
+                      <div className="text-xs text-gray-500 mb-2 flex items-center gap-1">
+                        <CalendarDays className="w-3 h-3" />
+                        {item.extraFields?.startDate && new Date(item.extraFields.startDate).toLocaleDateString('en-AU')}
+                        {item.extraFields?.startDate && item.extraFields?.endDate && ' - '}
+                        {item.extraFields?.endDate && new Date(item.extraFields.endDate).toLocaleDateString('en-AU')}
+                      </div>
+                    )}
+                    {item.description && (
+                      <p className="text-sm text-gray-600 mb-2 text-left">{item.description}</p>
+                    )}
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <Badge variant="secondary">{item.status}</Badge>
+                      {item.extraFields?.priority && (
+                        <Badge variant={
+                          item.extraFields.priority === 'High' ? 'destructive' :
+                          item.extraFields.priority === 'Medium' ? 'secondary' :
+                          'default'
+                        } className="flex items-center gap-1">
+                          <AlertTriangle className="w-3 h-3" />
+                          {item.extraFields.priority}
+                        </Badge>
+                      )}
+                      {item.extraFields?.energy && (
+                        <Badge variant="outline" className="bg-orange-100 text-orange-700 flex items-center gap-1">
+                          <Zap className="w-3 h-3" />
+                          {item.extraFields.energy}
+                        </Badge>
+                      )}
+                    </div>
+                    {item.tags && item.tags.length > 0 && tag !== 'No Tags' && (
+                      <div className="flex items-center gap-1 flex-wrap mt-2">
+                        {item.tags.filter(t => t !== tag).map(otherTag => (
+                          <Badge key={otherTag} variant="outline" className="bg-blue-50 text-blue-600 text-[10px] px-1.5 py-0.5">
+                            {otherTag}
+                          </Badge>
+                        ))}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              ))}
+              {tagItems.length === 0 && (
+                <div className="text-center py-8 text-gray-500 text-sm">
+                  No items with "{tag}" tag
+                </div>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+    )
   }
 
   const renderListView = (filteredItems: Item[]) => {
@@ -2859,6 +2996,7 @@ function App() {
                 { key: 'status', label: 'By Status', icon: '●' },
                 { key: 'date', label: 'By Date', icon: '◐' },
                 { key: 'timeline', label: 'Timeline', icon: '—' },
+                { key: 'tags', label: 'By Tags', icon: '#' },
                 { key: 'graph', label: 'Graph', icon: '○' }
               ]).map(view => (
                 <Button
