@@ -46,6 +46,7 @@ export const items = pgTable('items', {
   title: text('title').notNull(),
   description: text('description'),
   extraFields: json('extra_fields').default({}).notNull(),
+  tags: text('tags').array(),
   embedding: text('embedding'), // Vector type for pgvector
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull()

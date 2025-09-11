@@ -29,6 +29,7 @@ interface Item {
   title: string
   description?: string
   status?: string
+  tags?: string[]
   extraFields?: Record<string, any>
 }
 
@@ -440,7 +441,10 @@ function App() {
   const [calendarView, setCalendarView] = useState<'month' | 'week' | 'day' | 'quarter'>('month')
   const [bucketFields, setBucketFields] = useState<Record<string, CustomField[]>>({})
   const [apiStatuses, setApiStatuses] = useState<Record<string, string[]>>({})
-  const [formData, setFormData] = useState<{status: string, priority?: string, energy?: string, title?: string, description?: string, extraFields?: Record<string, any>}>({status: "Next Up"})
+  const [formData, setFormData] = useState<{status: string, priority?: string, energy?: string, title?: string, description?: string, tags?: string[], extraFields?: Record<string, any>}>({status: "Next Up"})
+  const [tagsInput, setTagsInput] = useState('')
+  const [allTags, setAllTags] = useState<string[]>([])
+  const [showTagSuggestions, setShowTagSuggestions] = useState(false)
   const [showPanel, setShowPanel] = useState(false)
   const [panelMode, setPanelMode] = useState<'add' | 'edit' | 'fields'>('add')
   const [panelBucket, setPanelBucket] = useState<string>('PROJECT')
@@ -541,18 +545,32 @@ function App() {
         priority: currentEditItem.extraFields?.priority || undefined,
         energy: currentEditItem.extraFields?.energy || undefined,
         title: currentEditItem.title || '',
-        description: currentEditItem.description || ''
+        description: currentEditItem.description || '',
+        tags: currentEditItem.tags || []
       })
+      setTagsInput('')
     } else {
-      setFormData({status: "Next Up"})
+      setFormData({status: "Next Up", tags: []})
+      setTagsInput('')
     }
   }, [currentEditItem])
+
+  const loadAllTags = (itemsData: Item[]) => {
+    const tagSet = new Set<string>()
+    itemsData.forEach(item => {
+      if (item.tags) {
+        item.tags.forEach(tag => tagSet.add(tag))
+      }
+    })
+    setAllTags(Array.from(tagSet).sort())
+  }
 
   const loadItems = async () => {
     try {
       const response = await fetch('/api/items')
       const data = await response.json()
       setItems(data)
+      loadAllTags(data)
       // Load notes counts
       loadNotesCounts(data)
       // Load relationships for each item
@@ -636,6 +654,7 @@ function App() {
     setSelectedRelationships([])
     setFormData({
       status: "Next Up",
+      tags: [],
       extraFields: {
         priority: "Medium",
         energy: "Medium"
@@ -677,7 +696,8 @@ function App() {
   const closePanel = () => {
     setShowPanel(false)
     setCurrentEditItem(null)
-    setFormData({status: "Next Up"})
+    setFormData({status: "Next Up", tags: []})
+    setTagsInput('')
     setFormErrors({})
     setSelectedRelationships([])
   }
@@ -688,15 +708,17 @@ function App() {
     try {
       const extraFields = { ...currentEditItem.extraFields }
       if (field === 'status') {
-        await updateItem(currentEditItem.id, currentEditItem.title, currentEditItem.description, value, extraFields)
+        await updateItem(currentEditItem.id, currentEditItem.title, currentEditItem.description, value, extraFields, undefined, currentEditItem.tags)
       } else if (field === 'title') {
-        await updateItem(currentEditItem.id, value, currentEditItem.description, currentEditItem.status, extraFields)
+        await updateItem(currentEditItem.id, value, currentEditItem.description, currentEditItem.status, extraFields, undefined, currentEditItem.tags)
       } else if (field === 'description') {
-        await updateItem(currentEditItem.id, currentEditItem.title, value, currentEditItem.status, extraFields)
+        await updateItem(currentEditItem.id, currentEditItem.title, value, currentEditItem.status, extraFields, undefined, currentEditItem.tags)
+      } else if (field === 'tags') {
+        await updateItem(currentEditItem.id, currentEditItem.title, currentEditItem.description, currentEditItem.status, extraFields, undefined, value)
       } else {
         // Update extra field
         extraFields[field] = value
-        await updateItem(currentEditItem.id, currentEditItem.title, currentEditItem.description, currentEditItem.status, extraFields)
+        await updateItem(currentEditItem.id, currentEditItem.title, currentEditItem.description, currentEditItem.status, extraFields, undefined, currentEditItem.tags)
       }
     } catch (error) {
       console.error('Auto-save failed:', error)
@@ -1568,6 +1590,11 @@ function App() {
                             {item.extraFields.energy}
                           </Badge>
                         )}
+                        {item.tags && item.tags.length > 0 && item.tags.map(tag => (
+                          <Badge key={tag} variant="outline" className="bg-gray-100 text-gray-600 text-xs">
+                            {tag}
+                          </Badge>
+                        ))}
                       </div>
                     </CardContent>
                   </Card>
@@ -2118,6 +2145,11 @@ function App() {
                               {item.extraFields.energy}
                             </Badge>
                           )}
+                          {item.tags && item.tags.length > 0 && item.tags.map(tag => (
+                            <Badge key={tag} variant="outline" className="bg-gray-100 text-gray-600 text-xs">
+                              {tag}
+                            </Badge>
+                          ))}
                         </div>
                       </CardContent>
                     </Card>
@@ -2340,6 +2372,11 @@ function App() {
                                 {item.extraFields.energy}
                               </Badge>
                             )}
+                            {item.tags && item.tags.length > 0 && item.tags.map(tag => (
+                              <Badge key={tag} variant="outline" className="bg-gray-100 text-gray-600 text-xs">
+                                {tag}
+                              </Badge>
+                            ))}
                           </div>
                         </CardContent>
                       </Card>
@@ -2495,7 +2532,7 @@ function App() {
     }
   }
 
-  const createItem = async (bucket: string, title: string, description: string, status: string, extraFields: Record<string, any>) => {
+  const createItem = async (bucket: string, title: string, description: string, status: string, extraFields: Record<string, any>, tags?: string[]) => {
     console.log('createItem called with:', { bucket, title, description, status, extraFields })
     if (!title.trim()) {
       console.log('Title is empty, returning')
@@ -2512,7 +2549,8 @@ function App() {
           title, 
           description, 
           statusName: status,
-          extraFields 
+          extraFields,
+          tags: tags || []
         })
       })
 
@@ -2535,13 +2573,17 @@ function App() {
     return null
   }
 
-  const updateItem = async (itemId: string, title: string, description: string, status: string, extraFields: Record<string, any>, bucket?: string) => {
+  const updateItem = async (itemId: string, title: string, description: string, status: string, extraFields: Record<string, any>, bucket?: string, tags?: string[]) => {
     try {
       const updateData: any = { 
         title, 
         description, 
         status, 
-        extraFields 
+        extraFields
+      }
+      
+      if (tags !== undefined) {
+        updateData.tags = tags
       }
       
       if (bucket) {
@@ -3183,6 +3225,126 @@ function App() {
                     />
                   </div>
 
+                  <div className="flex items-start gap-4">
+                    <label className="text-sm font-medium text-gray-700 w-20 flex-shrink-0 pt-2 text-left">
+                      Tags
+                    </label>
+                    <div className="w-4/5 relative">
+                      <div className="flex flex-wrap gap-1 mb-2">
+                        {(formData.tags || []).map(tag => (
+                          <Badge key={tag} variant="outline" className="bg-blue-100 text-blue-700 text-xs flex items-center gap-1">
+                            {tag}
+                            <X 
+                              className="w-3 h-3 cursor-pointer" 
+                              onClick={() => {
+                                const newTags = (formData.tags || []).filter(t => t !== tag)
+                                setFormData(prev => ({...prev, tags: newTags}))
+                                if (currentEditItem) {
+                                  autoSave('tags', newTags)
+                                }
+                              }}
+                            />
+                          </Badge>
+                        ))}
+                      </div>
+                      <Input
+                        type="text"
+                        value={tagsInput}
+                        onChange={(e) => {
+                          setTagsInput(e.target.value)
+                          setShowTagSuggestions(true)
+                        }}
+                        onFocus={() => setShowTagSuggestions(true)}
+                        onBlur={() => setTimeout(() => setShowTagSuggestions(false), 200)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ',') {
+                            e.preventDefault()
+                            const newTag = tagsInput.trim()
+                            if (newTag && !(formData.tags || []).includes(newTag)) {
+                              const newTags = [...(formData.tags || []), newTag]
+                              setFormData(prev => ({...prev, tags: newTags}))
+                              if (currentEditItem) {
+                                autoSave('tags', newTags)
+                              }
+                            }
+                            setTagsInput('')
+                            setShowTagSuggestions(false)
+                          }
+                        }}
+                        className="text-xs"
+                      />
+                      {showTagSuggestions && (
+                        <div className="absolute z-10 w-full bg-white border border-gray-200 rounded-md shadow-lg max-h-40 overflow-y-auto mt-1">
+                          {tagsInput ? (
+                            // Show filtered tags when typing
+                            allTags
+                              .filter(tag => 
+                                tag.toLowerCase().includes(tagsInput.toLowerCase()) && 
+                                !(formData.tags || []).includes(tag)
+                              )
+                              .map(tag => (
+                                <div
+                                  key={tag}
+                                  className="px-3 py-2 hover:bg-gray-100 cursor-pointer text-xs"
+                                  onClick={() => {
+                                    const newTags = [...(formData.tags || []), tag]
+                                    setFormData(prev => ({...prev, tags: newTags}))
+                                    if (currentEditItem) {
+                                      autoSave('tags', newTags)
+                                    }
+                                    setTagsInput('')
+                                    setShowTagSuggestions(false)
+                                  }}
+                                >
+                                  {tag}
+                                </div>
+                              ))
+                          ) : (
+                            // Show all available tags when no input
+                            allTags
+                              .filter(tag => !(formData.tags || []).includes(tag))
+                              .map(tag => (
+                                <div
+                                  key={tag}
+                                  className="px-3 py-2 hover:bg-gray-100 cursor-pointer text-xs"
+                                  onClick={() => {
+                                    const newTags = [...(formData.tags || []), tag]
+                                    setFormData(prev => ({...prev, tags: newTags}))
+                                    if (currentEditItem) {
+                                      autoSave('tags', newTags)
+                                    }
+                                    setTagsInput('')
+                                    setShowTagSuggestions(false)
+                                  }}
+                                >
+                                  {tag}
+                                </div>
+                              ))
+                          )}
+                          {tagsInput.trim() && 
+                           !allTags.some(tag => tag.toLowerCase() === tagsInput.toLowerCase()) && 
+                           !(formData.tags || []).includes(tagsInput.trim()) && (
+                            <div
+                              className="px-3 py-2 hover:bg-gray-100 cursor-pointer text-xs border-t border-gray-200 text-blue-600"
+                              onClick={() => {
+                                const newTag = tagsInput.trim()
+                                const newTags = [...(formData.tags || []), newTag]
+                                setFormData(prev => ({...prev, tags: newTags}))
+                                if (currentEditItem) {
+                                  autoSave('tags', newTags)
+                                }
+                                setTagsInput('')
+                                setShowTagSuggestions(false)
+                              }}
+                            >
+                              Create "{tagsInput.trim()}"
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
                   <div className="flex items-center gap-4">
                     <label className="text-sm font-medium text-gray-700 w-20 flex-shrink-0 text-left">
                       Status
@@ -3588,7 +3750,8 @@ function App() {
                             formData.title,
                             formData.description || '',
                             formData.status || 'Planning',
-                            formData.extraFields || {}
+                            formData.extraFields || {},
+                            formData.tags || []
                           )
                           
                           console.log('createItem returned:', newItem)
@@ -3614,7 +3777,8 @@ function App() {
                           
                           if (newItem) {
                             setShowPanel(false)
-                            setFormData({status: "Next Up"})
+                            setFormData({status: "Next Up", tags: []})
+                            setTagsInput('')
                             setSelectedRelationships([])
                           }
                         }}

@@ -29,7 +29,8 @@ export class PARAService {
       title: input.title,
       description: input.description,
       statusId: status.id,
-      extraFields: input.extraFields || {}
+      extraFields: input.extraFields || {},
+      tags: input.tags || []
     }).returning();
 
     return result[0];
@@ -43,6 +44,7 @@ export class PARAService {
       title: items.title,
       description: items.description,
       extraFields: items.extraFields,
+      tags: items.tags,
       embedding: items.embedding,
       createdAt: items.createdAt,
       updatedAt: items.updatedAt,
@@ -61,6 +63,7 @@ export class PARAService {
     if (data.title !== undefined) updateData.title = data.title
     if (data.description !== undefined) updateData.description = data.description
     if (data.extraFields !== undefined) updateData.extraFields = data.extraFields
+    if (data.tags !== undefined) updateData.tags = data.tags
     
     // Handle status - convert status name to statusId
     if (data.status !== undefined) {

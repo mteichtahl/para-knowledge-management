@@ -51,6 +51,7 @@ CREATE TABLE items (
     title TEXT NOT NULL,
     description TEXT,
     extra_fields JSONB DEFAULT '{}' NOT NULL,
+    tags TEXT[],
     embedding TEXT,
     created_at TIMESTAMP DEFAULT NOW() NOT NULL,
     updated_at TIMESTAMP DEFAULT NOW() NOT NULL

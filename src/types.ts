@@ -12,6 +12,7 @@ export interface CreateItemInput {
   statusName?: string;
   description?: string;
   extraFields?: Record<string, any>;
+  tags?: string[];
 }
 
 export interface CreateRelationInput {
