@@ -991,23 +991,37 @@ function App() {
                   <CardContent className="p-3">
                     <div className="flex items-start justify-between mb-2">
                       <h4 className="font-medium text-sm text-left flex-1">{item.title}</h4>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          setSelectedItemForNotes(item.id)
-                          loadNotes(item.id)
-                          setShowNotesPanel(true)
-                        }}
-                        className="p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded transition-colors flex items-center gap-1"
-                        title="View notes"
-                      >
-                        <MessageSquare className="w-3 h-3" />
-                        {notesCounts[item.id] > 0 && (
-                          <span className="text-[10px] text-gray-600">
-                            {notesCounts[item.id]}
-                          </span>
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setSelectedItemForNotes(item.id)
+                            loadNotes(item.id)
+                            setShowNotesPanel(true)
+                          }}
+                          className="p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded transition-colors flex items-center gap-1"
+                          title="View notes"
+                        >
+                          <MessageSquare className="w-3 h-3" />
+                          {notesCounts[item.id] > 0 && (
+                            <span className="text-[10px] text-gray-600">
+                              {notesCounts[item.id]}
+                            </span>
+                          )}
+                        </button>
+                        {item.bucket !== 'ARCHIVE' && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              archiveItem(item)
+                            }}
+                            className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                            title="Archive item"
+                          >
+                            <Archive className="w-3 h-3" />
+                          </button>
                         )}
-                      </button>
+                      </div>
                     </div>
                     {(item.extraFields?.startDate || item.extraFields?.endDate) && (
                       <div className="text-xs text-gray-500 mb-2 flex items-center gap-1">
@@ -1771,23 +1785,37 @@ function App() {
                     className="cursor-pointer hover:shadow-md transition-shadow"
                   >
                     <CardContent className="p-3 relative">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          setSelectedItemForNotes(item.id)
-                          loadNotes(item.id)
-                          setShowNotesPanel(true)
-                        }}
-                        className="absolute top-2 right-2 p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded transition-colors flex items-center gap-1"
-                        title="View notes"
-                      >
-                        <MessageSquare className="w-3 h-3" />
-                        {notesCounts[item.id] > 0 && (
-                          <span className="text-[10px] text-gray-600">
-                            {notesCounts[item.id]}
-                          </span>
+                      <div className="absolute top-2 right-2 flex items-center gap-1">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setSelectedItemForNotes(item.id)
+                            loadNotes(item.id)
+                            setShowNotesPanel(true)
+                          }}
+                          className="p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded transition-colors flex items-center gap-1"
+                          title="View notes"
+                        >
+                          <MessageSquare className="w-3 h-3" />
+                          {notesCounts[item.id] > 0 && (
+                            <span className="text-[10px] text-gray-600">
+                              {notesCounts[item.id]}
+                            </span>
+                          )}
+                        </button>
+                        {item.bucket !== 'ARCHIVE' && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              archiveItem(item)
+                            }}
+                            className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                            title="Archive item"
+                          >
+                            <Archive className="w-3 h-3" />
+                          </button>
                         )}
-                      </button>
+                      </div>
                       <CardTitle className="text-sm font-medium text-gray-900 mb-1 text-left flex items-center gap-1">
                         {item.title}
                         {isItemOverdue(item) && (
@@ -2552,23 +2580,37 @@ function App() {
                         onClick={() => openEditPanel(item)}
                       >
                         <CardContent className="p-3 relative">
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              setSelectedItemForNotes(item.id)
-                              loadNotes(item.id)
-                              setShowNotesPanel(true)
-                            }}
-                            className="absolute top-2 right-2 p-1 text-gray-400 hover:text-gray-600 rounded flex items-center gap-1"
-                            title="Notes"
-                          >
-                            <MessageSquare className="w-3 h-3" />
-                            {notesCounts[item.id] > 0 && (
-                              <span className="text-[10px] text-gray-600">
-                                {notesCounts[item.id]}
-                              </span>
+                          <div className="absolute top-2 right-2 flex items-center gap-1">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                setSelectedItemForNotes(item.id)
+                                loadNotes(item.id)
+                                setShowNotesPanel(true)
+                              }}
+                              className="p-1 text-gray-400 hover:text-gray-600 rounded flex items-center gap-1"
+                              title="Notes"
+                            >
+                              <MessageSquare className="w-3 h-3" />
+                              {notesCounts[item.id] > 0 && (
+                                <span className="text-[10px] text-gray-600">
+                                  {notesCounts[item.id]}
+                                </span>
+                              )}
+                            </button>
+                            {item.bucket !== 'ARCHIVE' && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  archiveItem(item)
+                                }}
+                                className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                                title="Archive item"
+                              >
+                                <Archive className="w-3 h-3" />
+                              </button>
                             )}
-                          </button>
+                          </div>
                           <CardTitle className="text-sm font-medium text-gray-900 mb-1 text-left pr-8 flex items-center gap-1">
                             {item.title}
                             {isItemOverdue(item) && (
@@ -2812,6 +2854,48 @@ function App() {
     return null
   }
 
+  const archiveItem = async (item: Item) => {
+    try {
+      console.log('Archiving item:', item.id, item.title, 'from bucket:', item.bucket)
+      
+      // Move the item to Archive bucket
+      await updateItem(item.id, item.title, item.description, item.status, item.extraFields || {}, 'ARCHIVE', item.tags)
+      
+      // Handle cascading archival based on bucket type
+      if (item.bucket === 'AREA') {
+        console.log('Archiving area relationships')
+        // Archive all relationships when archiving an area
+        const relationships = itemRelationships[item.id] || []
+        for (const rel of relationships) {
+          const relatedItemId = rel.parentId === item.id ? rel.childId : rel.parentId
+          const relatedItem = items.find(i => i.id === relatedItemId)
+          if (relatedItem && relatedItem.bucket !== 'ARCHIVE') {
+            console.log('Archiving related item:', relatedItem.id, relatedItem.title)
+            await updateItem(relatedItem.id, relatedItem.title, relatedItem.description, relatedItem.status, relatedItem.extraFields || {}, 'ARCHIVE', relatedItem.tags)
+          }
+        }
+      } else if (item.bucket === 'PROJECT') {
+        console.log('Archiving project actions and resources')
+        // Archive actions and resources when archiving a project
+        const relationships = itemRelationships[item.id] || []
+        for (const rel of relationships) {
+          const relatedItemId = rel.parentId === item.id ? rel.childId : rel.parentId
+          const relatedItem = items.find(i => i.id === relatedItemId)
+          if (relatedItem && (relatedItem.bucket === 'ACTION' || relatedItem.bucket === 'RESOURCE') && relatedItem.bucket !== 'ARCHIVE') {
+            console.log('Archiving related action/resource:', relatedItem.id, relatedItem.title)
+            await updateItem(relatedItem.id, relatedItem.title, relatedItem.description, relatedItem.status, relatedItem.extraFields || {}, 'ARCHIVE', relatedItem.tags)
+          }
+        }
+      }
+      
+      console.log('Archive operation completed')
+      // Reload items to reflect changes
+      loadItems()
+    } catch (error) {
+      console.error('Failed to archive item:', error)
+    }
+  }
+
   const updateItem = async (itemId: string, title: string, description: string, status: string, extraFields: Record<string, any>, bucket?: string, tags?: string[]) => {
     try {
       const updateData: any = { 
@@ -2825,9 +2909,11 @@ function App() {
         updateData.tags = tags
       }
       
-      if (bucket) {
+      if (bucket !== undefined) {
         updateData.bucket = bucket
       }
+
+      console.log('Updating item:', itemId, 'with data:', updateData)
 
       const response = await fetch(`/api/items/${itemId}`, {
         method: 'PUT',
@@ -2836,7 +2922,10 @@ function App() {
       })
 
       if (response.ok) {
+        console.log('Item updated successfully')
         loadItems()
+      } else {
+        console.error('Failed to update item:', response.status, response.statusText)
       }
     } catch (error) {
       console.error('Failed to update item:', error)

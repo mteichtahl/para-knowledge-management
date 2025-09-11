@@ -64,6 +64,7 @@ export class PARAService {
     if (data.description !== undefined) updateData.description = data.description
     if (data.extraFields !== undefined) updateData.extraFields = data.extraFields
     if (data.tags !== undefined) updateData.tags = data.tags
+    if (data.bucket !== undefined) updateData.bucket = data.bucket
     
     // Handle status - convert status name to statusId
     if (data.status !== undefined) {
@@ -73,11 +74,14 @@ export class PARAService {
       })
       
       if (currentItem) {
+        // Use the new bucket if provided, otherwise use current bucket
+        const bucket = data.bucket || currentItem.bucket
+        
         // Find the status ID for the given status name and bucket
         const statusRecord = await this.db.query.statuses.findFirst({
           where: and(
             eq(statuses.name, data.status),
-            eq(statuses.bucket, currentItem.bucket)
+            eq(statuses.bucket, bucket)
           )
         })
         
