@@ -454,7 +454,7 @@ function App() {
   const [showBucketAssignments, setShowBucketAssignments] = useState(false)
   // Predefined fields that cannot be removed from buckets
   const predefinedFields = ['priority', 'status', 'energy', 'startDate', 'endDate', 'owner', 'link', 'email']
-  const [showCustomFields, setShowCustomFields] = useState(false)
+  const [showCustomFields, setShowCustomFields] = useState(true)
   const [customFieldSearch, setCustomFieldSearch] = useState('')
   const [editingField, setEditingField] = useState<string | null>(null)
   const [formErrors, setFormErrors] = useState<Record<string, boolean>>({})
@@ -467,11 +467,13 @@ function App() {
   const [selectedGraphItem, setSelectedGraphItem] = useState<string | null>(null)
   const [draggedGraphItem, setDraggedGraphItem] = useState<string | null>(null)
   const [itemOrder, setItemOrder] = useState<Record<string, string[]>>({})
-  const [currentView, setCurrentView] = useState<'list' | 'priority' | 'status' | 'date' | 'timeline' | 'kanban' | 'graph' | 'tags'>('kanban')
+  const [currentView, setCurrentView] = useState<'list' | 'priority' | 'status' | 'date' | 'timeline' | 'kanban' | 'graph' | 'tags' | 'energy'>('kanban')
 
   // Set default view based on selected bucket
   useEffect(() => {
     if (selectedBucket === 'AREA') {
+      setCurrentView('list')
+    } else if (selectedBucket === 'RESOURCE') {
       setCurrentView('list')
     } else {
       setCurrentView('kanban')
@@ -542,11 +544,16 @@ function App() {
     if (currentEditItem) {
       setFormData({
         status: currentEditItem.status || "Next Up",
-        priority: currentEditItem.extraFields?.priority || undefined,
-        energy: currentEditItem.extraFields?.energy || undefined,
         title: currentEditItem.title || '',
         description: currentEditItem.description || '',
-        tags: currentEditItem.tags || []
+        tags: currentEditItem.tags || [],
+        priority: currentEditItem.extraFields?.priority,
+        energy: currentEditItem.extraFields?.energy,
+        extraFields: {
+          ...currentEditItem.extraFields,
+          priority: currentEditItem.extraFields?.priority,
+          energy: currentEditItem.extraFields?.energy
+        }
       })
       setTagsInput('')
     } else {
@@ -923,6 +930,8 @@ function App() {
         return renderTagsView(items)
       case 'kanban':
         return renderKanbanView(items)
+      case 'energy':
+        return renderEnergyView(items)
       default:
         return renderListView(items)
     }
@@ -2430,6 +2439,63 @@ function App() {
       </div>
     )
   }
+  const renderEnergyView = (items: Item[]) => {
+    const energyLevels = ['High', 'Medium', 'Low']
+    const energyColors = {
+      'High': 'border-red-200 bg-red-50',
+      'Medium': 'border-yellow-200 bg-yellow-50',
+      'Low': 'border-blue-200 bg-blue-50'
+    }
+    const energyTextColors = {
+      'High': 'text-red-700',
+      'Medium': 'text-yellow-700',
+      'Low': 'text-blue-700'
+    }
+    
+    return (
+      <div className="flex gap-6 overflow-x-auto pb-4">
+        {energyLevels.map(energy => (
+          <div key={energy} className={`flex-shrink-0 w-80 border rounded-lg ${energyColors[energy]}`}>
+            <div className="p-4 border-b border-current border-opacity-20">
+              <h3 className={`font-medium text-sm ${energyTextColors[energy]}`}>{energy} Energy</h3>
+            </div>
+            <div className="p-4 space-y-2">
+              {items
+                .filter(item => item.extraFields?.energy === energy)
+                .map(item => (
+                  <div
+                    key={item.id}
+                    className="bg-white p-4 rounded-lg shadow-sm hover:shadow-md transition-shadow cursor-pointer"
+                    onClick={() => openEditPanel(item)}
+                  >
+                    <div className="font-medium">{item.title}</div>
+                    {item.description && (
+                      <div className="text-sm text-gray-500 mt-1">{item.description}</div>
+                    )}
+                    <div className="flex gap-2 mt-2">
+                      {item.extraFields?.priority && (
+                        <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                          item.extraFields.priority.toLowerCase() === 'high' ? 'bg-red-100 text-red-700' :
+                          item.extraFields.priority.toLowerCase() === 'medium' ? 'bg-yellow-100 text-yellow-700' :
+                          'bg-blue-100 text-blue-700'
+                        }`}>
+                          {item.extraFields.priority}
+                        </span>
+                      )}
+                      {item.status && (
+                        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                          {item.status}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    )
+  }
 
   const renderKanbanView = (items: Item[]) => {
     // Get statuses for current bucket from API
@@ -3082,6 +3148,7 @@ function App() {
                 { key: 'kanban', label: 'Kanban', icon: '▢' },
                 { key: 'list', label: 'List', icon: '≡' },
                 { key: 'priority', label: 'By Priority', icon: '!' },
+                { key: 'energy', label: 'By Energy', icon: '⚡' },
                 { key: 'status', label: 'By Status', icon: '●' },
                 { key: 'date', label: 'By Date', icon: '◐' },
                 { key: 'timeline', label: 'Timeline', icon: '—' },
