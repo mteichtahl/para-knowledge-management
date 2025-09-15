@@ -21,6 +21,22 @@ A comprehensive TypeScript/Drizzle implementation of the PARA method with custom
 - **Multi-Select Dropdowns** for array fields
 - **Cross-Bucket Navigation** and relationship management
 
+### View Options
+- **Kanban**: Drag-and-drop cards between status columns
+- **List**: Detailed table view with inline editing
+- **By Priority**: Group items by priority level
+- **By Energy**: Organize tasks by energy requirement
+- **By Status**: Group items by their current status
+- **By Tags**: Filter and group items by tags
+- **Timeline**: Calendar-based view for scheduled items
+- **Graph**: Visual relationship mapping between items
+
+### Smart Relationships
+- **Project Context**: Shows associated areas for each project
+- **Action Context**: Displays parent projects for each action
+- **Bi-directional Navigation**: Easy movement between related items
+- **Visual Indicators**: Clear relationship status display
+
 ## 🚀 Quick Start
 
 ### Prerequisites
@@ -58,7 +74,7 @@ docker-compose up -d
 ### Technology Stack
 - **Backend**: Node.js, TypeScript, Drizzle ORM
 - **Database**: PostgreSQL with pgvector
-- **Frontend**: Vanilla HTML/CSS/JavaScript
+- **Frontend**: React, Tailwind CSS, shadcn/ui
 - **Deployment**: Docker Compose
 
 ## 📋 Usage Examples
@@ -102,6 +118,8 @@ await service.addRelationship({
 - **Date**: Date picker with calendar
 - **DateTime**: Date and time picker
 - **Array**: Single or multi-select dropdowns with predefined options
+- **Energy**: High/Medium/Low task energy requirement
+- **Priority**: High/Medium/Low task priority
 
 ## 🎨 UI Features
 
@@ -110,18 +128,22 @@ await service.addRelationship({
 - Parent-child relationship display
 - Cross-bucket navigation
 - Real-time search across all items
+- Smart relationship indicators
+- Multiple view options for different workflows
 
 ### Custom Fields Management
 - Dedicated fields management page
 - Drag-and-drop field assignment to buckets
 - Type-specific input controls
 - Default value configuration
+- Bulk field operations
 
 ### Relationship Management
 - Visual parent-child indicators
 - "Contains" sections showing child items
 - Clickable cross-bucket navigation
 - Relationship type display (uses, depends-on, contains, etc.)
+- Context-aware relationship display
 
 ## 🔧 Development
 
@@ -159,14 +181,15 @@ docker-compose logs -f app
 
 ### Pre-configured Fields
 - **priority**: Array field with options [low, medium, high]
+- **energy**: Array field with options [low, medium, high]
 - **deadline**: Date field for due dates
 - **isUrgent**: Boolean field for urgency flags
 - **tags**: Multi-select array field for categorization
 - **estimatedHours**: Text field for time estimates
 
 ### Default Assignments
-- **Projects**: priority, deadline, estimatedHours
-- **Actions**: priority, isUrgent, deadline
+- **Projects**: priority, energy, deadline, estimatedHours
+- **Actions**: priority, energy, isUrgent, deadline
 
 ### Status Workflows
 - **Projects**: Planning → In Progress → On Hold → Completed
