@@ -581,9 +581,7 @@ function App() {
       // Load notes counts
       loadNotesCounts(data)
       // Load relationships for each item
-      data.forEach((item: Item) => {
-        loadItemRelationships(item.id)
-      })
+      await Promise.all(data.map(item => loadItemRelationships(item.id)))
     } catch (error) {
       console.error('Failed to load items:', error)
     }
@@ -1892,8 +1890,8 @@ function App() {
       <div className="space-y-6">
         {Object.entries(statusGroups).map(([status, groupItems]) => (
           <div key={status}>
-            <h3 className="text-sm font-medium text-gray-700 mb-3">
-              {status} ({groupItems.length})
+            <h3 className="text-lg font-semibold text-gray-900 mb-3 flex items-center gap-2">
+              {status} <span className="text-sm text-gray-500">({groupItems.length})</span>
             </h3>
             {renderListView(groupItems)}
           </div>
@@ -2687,6 +2685,47 @@ function App() {
                               </div>
                             )}
                           </CardTitle>
+                          {selectedBucket === 'ACTION' && (
+                            <div className="text-xs text-gray-500 mb-2">
+                              {(() => {
+                                const relationships = itemRelationships[item.id] || []
+                                const projectRels = relationships.filter(rel => {
+                                  return rel.childBucket === 'PROJECT' || rel.parentBucket === 'PROJECT'
+                                })
+                                const projectNames = projectRels.map(rel => {
+                                  return rel.parentId === item.id ? rel.childTitle : rel.parentTitle
+                                }).filter(name => name)
+                                
+                                return projectNames.length > 0 
+                                  ? `Belongs to: ${projectNames.join(', ')}`
+                                  : 'No associated projects'
+                              })()}
+                            </div>
+                          )}
+                          {selectedBucket === 'PROJECT' && (
+                            <div className="text-xs text-gray-500 mb-2">
+                              {(() => {
+                                const relationships = itemRelationships[item.id] || []
+                                const allItems = items // Use the full items array
+                                console.log('All items:', allItems.map(i => ({ id: i.id, title: i.title, bucket: i.bucket })))
+                                console.log('Current item:', item)
+                                console.log('Relationships:', relationships)
+                                const areaRels = relationships.filter(rel => {
+                                  return rel.childBucket === 'AREA' || rel.parentBucket === 'AREA'
+                                })
+                                console.log('Area relationships:', areaRels)
+                                const areaNames = areaRels.map(rel => {
+                                  const otherItemId = rel.parentId === item.id ? rel.childId : rel.parentId
+                                  return rel.parentId === item.id ? rel.childTitle : rel.parentTitle
+                                }).filter(name => name)
+                                console.log('Area names:', areaNames)
+                                
+                                return areaNames.length > 0 
+                                  ? `Belongs to: ${areaNames.join(', ')}`
+                                  : 'No associated areas'
+                              })()}
+                            </div>
+                          )}
                           {(item.extraFields?.startDate || item.extraFields?.endDate) && (
                             <div className="text-xs text-gray-500 mb-2 flex items-center gap-1">
                               <CalendarDays className="w-3 h-3" />
