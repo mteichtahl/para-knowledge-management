@@ -3698,7 +3698,7 @@ function App() {
                   </div>
                   
                   {(showCustomFields || customFieldSearch) && (
-                    <div className="border-t border-gray-200 p-3 space-y-2 flex-1 overflow-y-auto">
+                    <div className="border-t border-gray-200 p-3 space-y-2 max-h-[90vh] overflow-y-auto">
                       {(() => {
                         const filteredFields = customFields.filter(field => 
                           !customFieldSearch || 
