@@ -1060,6 +1060,20 @@ function App() {
                         </Badge>
                       )}
                     </div>
+                    {item.bucket === 'ACTION' && item.extraFields?.progress !== undefined && (
+                      <div className="mt-2">
+                        <div className="flex items-center justify-between text-xs text-gray-500 mb-1">
+                          <span>Progress</span>
+                          <span>{item.extraFields.progress}%</span>
+                        </div>
+                        <div className="w-full bg-gray-200 rounded-full h-1.5">
+                          <div 
+                            className="bg-blue-500 h-1.5 rounded-full transition-all duration-300" 
+                            style={{ width: `${Math.min(100, Math.max(0, item.extraFields.progress || 0))}%` }}
+                          ></div>
+                        </div>
+                      </div>
+                    )}
                     {item.tags && item.tags.length > 0 && tag !== 'No Tags' && (
                       <div className="flex items-center gap-1 flex-wrap mt-2">
                         {item.tags.filter(t => t !== tag).map(otherTag => (
@@ -1307,6 +1321,36 @@ function App() {
                       <option value="true">Yes</option>
                       <option value="false">No</option>
                     </select>
+                  </div>
+                )
+              }
+              
+              if (fieldDef?.type === 'number') {
+                return (
+                  <div onClick={(e) => e.stopPropagation()}>
+                    <input
+                      type="number"
+                      min="0"
+                      max="100"
+                      value={value || '0'}
+                      onChange={async (e) => {
+                        e.stopPropagation()
+                        try {
+                          const updatedExtraFields = { ...row.original.extraFields, [fieldName]: e.target.value }
+                          await updateItem(row.original.id, row.original.title, row.original.description, row.original.status, updatedExtraFields)
+                          setEditingCell(null)
+                          loadItems()
+                        } catch (error) {
+                          console.error('Failed to update field:', error)
+                          setEditingCell(null)
+                        }
+                      }}
+                      onBlur={() => {
+                        setTimeout(() => setEditingCell(null), 100)
+                      }}
+                      autoFocus
+                      className="px-2 py-1 text-xs border rounded w-16"
+                    />
                   </div>
                 )
               }
@@ -2412,6 +2456,20 @@ function App() {
                             </Badge>
                           )}
                         </div>
+                        {item.bucket === 'ACTION' && item.extraFields?.progress !== undefined && (
+                          <div className="mt-2">
+                            <div className="flex items-center justify-between text-xs text-gray-500 mb-1">
+                              <span>Progress</span>
+                              <span>{item.extraFields.progress}%</span>
+                            </div>
+                            <div className="w-full bg-gray-200 rounded-full h-1.5">
+                              <div 
+                                className="bg-blue-500 h-1.5 rounded-full transition-all duration-300" 
+                                style={{ width: `${Math.min(100, Math.max(0, item.extraFields.progress || 0))}%` }}
+                              ></div>
+                            </div>
+                          </div>
+                        )}
                         {item.tags && item.tags.length > 0 && (
                           <div className="flex items-center gap-1 flex-wrap mt-2">
                             {item.tags.map(tag => (
@@ -2755,6 +2813,20 @@ function App() {
                               </Badge>
                             )}
                           </div>
+                          {item.bucket === 'ACTION' && item.extraFields?.progress !== undefined && (
+                            <div className="mt-2">
+                              <div className="flex items-center justify-between text-xs text-gray-500 mb-1">
+                                <span>Progress</span>
+                                <span>{item.extraFields.progress}%</span>
+                              </div>
+                              <div className="w-full bg-gray-200 rounded-full h-1.5">
+                                <div 
+                                  className="bg-blue-500 h-1.5 rounded-full transition-all duration-300" 
+                                  style={{ width: `${Math.min(100, Math.max(0, item.extraFields.progress || 0))}%` }}
+                                ></div>
+                              </div>
+                            </div>
+                          )}
                           {item.tags && item.tags.length > 0 && (
                             <div className="flex items-center gap-1 flex-wrap mt-2">
                               {item.tags.map(tag => (
@@ -3347,6 +3419,7 @@ function App() {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="text">Text</SelectItem>
+                        <SelectItem value="number">Number</SelectItem>
                         <SelectItem value="url">URL</SelectItem>
                         <SelectItem value="email">Email</SelectItem>
                         <SelectItem value="boolean">Boolean</SelectItem>
@@ -3978,6 +4051,42 @@ function App() {
                             <option key={option} value={option}>{option}</option>
                           ))}
                         </select>
+                      )}
+                      {field.type === 'number' && (
+                        <input
+                          name={`custom_${field.name}`}
+                          type="number"
+                          min="0"
+                          max="100"
+                          required={field.required}
+                          value={panelMode === 'add' ? (formData.extraFields?.[field.name] || field.defaultValue || '0') : (currentEditItem?.extraFields?.[field.name] || field.defaultValue || '0')}
+                          onChange={(e) => {
+                            setFormErrors(prev => ({...prev, [field.name]: false}))
+                            if (panelMode === 'add') {
+                              setFormData(prev => ({
+                                ...prev,
+                                extraFields: {
+                                  ...prev.extraFields,
+                                  [field.name]: e.target.value
+                                }
+                              }))
+                            } else {
+                              setCurrentEditItem({
+                                ...currentEditItem,
+                                extraFields: {
+                                  ...currentEditItem.extraFields,
+                                  [field.name]: e.target.value
+                                }
+                              })
+                            }
+                            autoSave(field.name, e.target.value)
+                          }}
+                          className={`w-4/5 px-2 py-1 border rounded-lg focus:outline-none ${
+                            formErrors[field.name] 
+                              ? 'border-red-500 focus:border-red-500 bg-red-50' 
+                              : 'border-gray-300 focus:border-blue-500'
+                          }`}
+                        />
                       )}
                     </div>
                   ))}
