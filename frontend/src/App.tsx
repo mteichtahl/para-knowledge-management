@@ -1311,7 +1311,7 @@ function App() {
                 // Get options from field definition or use defaults for common fields
                 let options = fieldDef?.options || []
                 if (fieldName === 'priority' && options.length === 0) {
-                  options = ['high', 'medium', 'low']
+                  options = ['High', 'Medium', 'Low']
                 }
                 if (fieldName === 'energy' && options.length === 0) {
                   options = ['high', 'medium', 'low']
@@ -1343,10 +1343,7 @@ function App() {
                       <option value="">Select {fieldName}</option>
                       {options.map(option => (
                         <option key={option} value={option}>
-                          {fieldName === 'priority' || fieldName === 'energy' ? 
-                            option.charAt(0).toUpperCase() + option.slice(1) : 
-                            option
-                          }
+                          {option}
                         </option>
                       ))}
                     </select>
@@ -1819,18 +1816,18 @@ function App() {
 
   const renderPriorityView = (items: Item[]) => {
     const priorityGroups = {
-      high: items.filter(item => item.extraFields?.priority?.toLowerCase() === 'high'),
-      medium: items.filter(item => item.extraFields?.priority?.toLowerCase() === 'medium'),
-      low: items.filter(item => item.extraFields?.priority?.toLowerCase() === 'low'),
+      High: items.filter(item => item.extraFields?.priority === 'High'),
+      Medium: items.filter(item => item.extraFields?.priority === 'Medium'),
+      Low: items.filter(item => item.extraFields?.priority === 'Low'),
       none: items.filter(item => !item.extraFields?.priority)
     }
 
-    const priorityOrder = ['high', 'medium', 'low', 'none']
-    const priorityLabels = { high: 'High Priority', medium: 'Medium Priority', low: 'Low Priority', none: 'No Priority' }
+    const priorityOrder = ['High', 'Medium', 'Low', 'none']
+    const priorityLabels = { High: 'High Priority', Medium: 'Medium Priority', Low: 'Low Priority', none: 'No Priority' }
     const priorityColors = { 
-      high: 'border-red-200 bg-red-50', 
-      medium: 'border-yellow-200 bg-yellow-50', 
-      low: 'border-blue-200 bg-blue-50', 
+      High: 'border-red-200 bg-red-50', 
+      Medium: 'border-yellow-200 bg-yellow-50', 
+      Low: 'border-blue-200 bg-blue-50', 
       none: 'border-gray-200 bg-gray-50' 
     }
 
@@ -1842,9 +1839,9 @@ function App() {
             <div key={priority} className={`flex-shrink-0 w-80 border rounded-lg ${priorityColors[priority as keyof typeof priorityColors]}`}>
               <div className="p-4 border-b border-current border-opacity-20">
                 <h3 className={`font-medium text-sm ${
-                  priority === 'high' ? 'text-red-700' : 
-                  priority === 'medium' ? 'text-orange-700' : 
-                  priority === 'low' ? 'text-blue-700' : 'text-gray-700'
+                  priority === 'High' ? 'text-red-700' : 
+                  priority === 'Medium' ? 'text-orange-700' : 
+                  priority === 'Low' ? 'text-blue-700' : 'text-gray-700'
                 }`}>
                   {priorityLabels[priority as keyof typeof priorityLabels]} ({groupItems.length})
                 </h3>
@@ -1869,9 +1866,9 @@ function App() {
                   e.currentTarget.classList.remove('bg-blue-100')
                   const itemId = e.dataTransfer.getData('text/plain')
                   const draggedItem = items.find(item => item.id === itemId)
-                  if (draggedItem && draggedItem.extraFields?.priority?.toLowerCase() !== priority) {
+                  if (draggedItem && draggedItem.extraFields?.priority !== priority) {
                     try {
-                      const newPriority = priority === 'none' ? undefined : (priority.charAt(0).toUpperCase() + priority.slice(1))
+                      const newPriority = priority === 'none' ? undefined : priority
                       const updatedFields = { ...draggedItem.extraFields, priority: newPriority }
                       await updateItem(draggedItem.id, draggedItem.title, draggedItem.description || '', draggedItem.status || '', updatedFields)
                       await loadItems()
@@ -1888,7 +1885,7 @@ function App() {
                     draggable
                     onDragStart={(e) => {
                       e.dataTransfer.setData('text/plain', item.id)
-                      setDraggedItem(item.extraFields?.priority?.toLowerCase() || 'none')
+                      setDraggedItem(item.extraFields?.priority || 'none')
                     }}
                     onDragEnd={() => setDraggedItem(null)}
                     onClick={() => openEditPanel(item)}
