@@ -2026,6 +2026,9 @@ function App() {
   }
 
   const renderGraphView = (allItems: Item[]) => {
+    // Filter out archived items
+    const items = allItems.filter(item => item.bucket !== 'ARCHIVE')
+    
     // Get related item IDs for selected item
     const getRelatedItemIds = (itemId: string): Set<string> => {
       const related = new Set<string>([itemId])
@@ -2048,7 +2051,7 @@ function App() {
     }
 
     const relatedIds = selectedGraphItem ? getRelatedItemIds(selectedGraphItem) : new Set()
-    const filteredItems = selectedGraphItem ? allItems.filter(item => relatedIds.has(item.id)) : allItems
+    const filteredItems = selectedGraphItem ? items.filter(item => relatedIds.has(item.id)) : items
 
     // Group items by bucket
     // Group items by bucket and apply custom ordering
