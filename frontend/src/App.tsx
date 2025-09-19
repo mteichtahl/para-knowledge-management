@@ -4067,7 +4067,11 @@ function App() {
                           name={`custom_${field.name}`}
                           type="text"
                           required={field.required}
-                          value={currentEditItem?.extraFields?.[field.name] || field.defaultValue || ''}
+                          value={
+                            currentEditItem 
+                              ? (currentEditItem.extraFields?.[field.name] || field.defaultValue || '')
+                              : (formData.extraFields?.[field.name] || field.defaultValue || '')
+                          }
                           onChange={(e) => {
                             setFormErrors(prev => ({...prev, [field.name]: false}))
                             // Update the current edit item state immediately
@@ -4079,8 +4083,17 @@ function App() {
                                   [field.name]: e.target.value
                                 }
                               })
+                              autoSave(field.name, e.target.value)
+                            } else {
+                              // Update formData for add mode
+                              setFormData(prev => ({
+                                ...prev,
+                                extraFields: {
+                                  ...prev.extraFields,
+                                  [field.name]: e.target.value
+                                }
+                              }))
                             }
-                            autoSave(field.name, e.target.value)
                           }}
                           className={`w-4/5 px-2 py-1 border rounded-lg focus:outline-none ${
                             formErrors[field.name] 
