@@ -1035,6 +1035,31 @@ function App() {
                             </span>
                           )}
                         </button>
+                        {item.bucket === 'PROJECT' && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setPanelMode('add')
+                              setPanelBucket('ACTION')
+                              setCurrentEditItem(null)
+                              setSelectedRelationships([item.id])
+                              setFormData({
+                                status: "Next Up",
+                                tags: [],
+                                extraFields: {
+                                  priority: "Medium",
+                                  energy: "Medium"
+                                }
+                              })
+                              setShowPanel(true)
+                              loadAvailableItems()
+                            }}
+                            className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                            title="Add action for this project"
+                          >
+                            <Plus className="w-3 h-3" />
+                          </button>
+                        )}
                         {item.bucket !== 'ARCHIVE' && (
                           <button
                             onClick={(e) => {
@@ -1081,13 +1106,15 @@ function App() {
                     </div>
                     {item.bucket === 'ACTION' && item.extraFields?.progress !== undefined && (
                       <div className="mt-2">
-                        <div className="flex items-center justify-between text-xs text-gray-500 mb-1">
-                          <span>Progress</span>
-                          <span>{item.extraFields.progress}%</span>
-                        </div>
                         <div className="w-full bg-gray-200 rounded-full h-1.5">
                           <div 
-                            className="bg-blue-500 h-1.5 rounded-full transition-all duration-300" 
+                            className={`h-1.5 rounded-full transition-all duration-300 ${
+                              (item.extraFields.progress || 0) <= 30 ? 'bg-yellow-200' :
+                              (item.extraFields.progress || 0) <= 50 ? 'bg-blue-200' :
+                              (item.extraFields.progress || 0) <= 80 ? 'bg-orange-200' :
+                              (item.extraFields.progress || 0) <= 95 ? 'bg-blue-500' :
+                              'bg-green-500'
+                            }`}
                             style={{ width: `${Math.min(100, Math.max(0, item.extraFields.progress || 0))}%` }}
                           ></div>
                         </div>
@@ -1886,6 +1913,31 @@ function App() {
                             </span>
                           )}
                         </button>
+                        {item.bucket === 'PROJECT' && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setPanelMode('add')
+                              setPanelBucket('ACTION')
+                              setCurrentEditItem(null)
+                              setSelectedRelationships([item.id])
+                              setFormData({
+                                status: "Next Up",
+                                tags: [],
+                                extraFields: {
+                                  priority: "Medium",
+                                  energy: "Medium"
+                                }
+                              })
+                              setShowPanel(true)
+                              loadAvailableItems()
+                            }}
+                            className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                            title="Add action for this project"
+                          >
+                            <Plus className="w-3 h-3" />
+                          </button>
+                        )}
                         {item.bucket !== 'ARCHIVE' && (
                           <button
                             onClick={(e) => {
@@ -2490,13 +2542,15 @@ function App() {
                         </div>
                         {item.bucket === 'ACTION' && item.extraFields?.progress !== undefined && (
                           <div className="mt-2">
-                            <div className="flex items-center justify-between text-xs text-gray-500 mb-1">
-                              <span>Progress</span>
-                              <span>{item.extraFields.progress}%</span>
-                            </div>
                             <div className="w-full bg-gray-200 rounded-full h-1.5">
                               <div 
-                                className="bg-blue-500 h-1.5 rounded-full transition-all duration-300" 
+                                className={`h-1.5 rounded-full transition-all duration-300 ${
+                                  (item.extraFields.progress || 0) <= 30 ? 'bg-yellow-200' :
+                                  (item.extraFields.progress || 0) <= 50 ? 'bg-blue-200' :
+                                  (item.extraFields.progress || 0) <= 80 ? 'bg-orange-200' :
+                                  (item.extraFields.progress || 0) <= 95 ? 'bg-blue-500' :
+                                  'bg-green-500'
+                                }`}
                                 style={{ width: `${Math.min(100, Math.max(0, item.extraFields.progress || 0))}%` }}
                               ></div>
                             </div>
@@ -2765,6 +2819,31 @@ function App() {
                                 </span>
                               )}
                             </button>
+                            {item.bucket === 'PROJECT' && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  setPanelMode('add')
+                                  setPanelBucket('ACTION')
+                                  setCurrentEditItem(null)
+                                  setSelectedRelationships([item.id])
+                                  setFormData({
+                                    status: "Next Up",
+                                    tags: [],
+                                    extraFields: {
+                                      priority: "Medium",
+                                      energy: "Medium"
+                                    }
+                                  })
+                                  setShowPanel(true)
+                                  loadAvailableItems()
+                                }}
+                                className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                                title="Add action for this project"
+                              >
+                                <Plus className="w-3 h-3" />
+                              </button>
+                            )}
                             {item.bucket !== 'ARCHIVE' && (
                               <button
                                 onClick={(e) => {
@@ -2898,13 +2977,15 @@ function App() {
                           </div>
                           {item.bucket === 'ACTION' && item.extraFields?.progress !== undefined && (
                             <div className="mt-2">
-                              <div className="flex items-center justify-between text-xs text-gray-500 mb-1">
-                                <span>Progress</span>
-                                <span>{item.extraFields.progress}%</span>
-                              </div>
                               <div className="w-full bg-gray-200 rounded-full h-1.5">
                                 <div 
-                                  className="bg-blue-500 h-1.5 rounded-full transition-all duration-300" 
+                                  className={`h-1.5 rounded-full transition-all duration-300 ${
+                                    (item.extraFields.progress || 0) <= 30 ? 'bg-yellow-200' :
+                                    (item.extraFields.progress || 0) <= 50 ? 'bg-blue-200' :
+                                    (item.extraFields.progress || 0) <= 80 ? 'bg-orange-200' :
+                                    (item.extraFields.progress || 0) <= 95 ? 'bg-blue-500' :
+                                    'bg-green-500'
+                                  }`}
                                   style={{ width: `${Math.min(100, Math.max(0, item.extraFields.progress || 0))}%` }}
                                 ></div>
                               </div>
