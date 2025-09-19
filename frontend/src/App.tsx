@@ -652,6 +652,25 @@ function App() {
     return endDate <= today
   }
 
+  const getProjectProgress = (projectId: string) => {
+    const relatedActions = (itemRelationships[projectId] || [])
+      .filter(rel => {
+        const relatedItemId = rel.childId === projectId ? rel.parentId : rel.childId
+        const relatedItem = items.find(i => i.id === relatedItemId)
+        return relatedItem?.bucket === 'ACTION'
+      })
+      .map(rel => {
+        const relatedItemId = rel.childId === projectId ? rel.parentId : rel.childId
+        return items.find(i => i.id === relatedItemId)
+      })
+      .filter(item => item && item.extraFields?.progress !== undefined)
+
+    if (relatedActions.length === 0) return null
+    
+    const totalProgress = relatedActions.reduce((sum, action) => sum + (action.extraFields?.progress || 0), 0)
+    return Math.round(totalProgress / relatedActions.length)
+  }
+
   const openAddPanel = (bucket: string) => {
     setPanelMode('add')
     setPanelBucket(bucket)
@@ -1083,6 +1102,19 @@ function App() {
                         ))}
                       </div>
                     )}
+                    {item.bucket === 'PROJECT' && (() => {
+                      const avgProgress = getProjectProgress(item.id)
+                      return avgProgress !== null ? (
+                        <div className="mt-2">
+                          <div className="w-full bg-gray-200 rounded-full h-1.5">
+                            <div 
+                              className="bg-green-500 h-1.5 rounded-full transition-all duration-300" 
+                              style={{ width: `${Math.min(100, Math.max(0, avgProgress))}%` }}
+                            ></div>
+                          </div>
+                        </div>
+                      ) : null
+                    })()}
                   </CardContent>
                 </Card>
               ))}
@@ -2479,6 +2511,19 @@ function App() {
                             ))}
                           </div>
                         )}
+                        {item.bucket === 'PROJECT' && (() => {
+                          const avgProgress = getProjectProgress(item.id)
+                          return avgProgress !== null ? (
+                            <div className="mt-2">
+                              <div className="w-full bg-gray-200 rounded-full h-1.5">
+                                <div 
+                                  className="bg-green-500 h-1.5 rounded-full transition-all duration-300" 
+                                  style={{ width: `${Math.min(100, Math.max(0, avgProgress))}%` }}
+                                ></div>
+                              </div>
+                            </div>
+                          ) : null
+                        })()}
                       </CardContent>
                     </Card>
                   ))}
@@ -2755,7 +2800,26 @@ function App() {
                                 }).filter(name => name)
                                 
                                 return projectNames.length > 0 
-                                  ? `Belongs to: ${projectNames.join(', ')}`
+                                  ? (
+                                    <span>
+                                      Belongs to: {projectNames.map((projectName, index) => (
+                                        <span key={projectName}>
+                                          <button
+                                            onClick={(e) => {
+                                              e.stopPropagation()
+                                              setSelectedBucket('PROJECT')
+                                              setSearchQuery(projectName)
+                                              setCurrentView('table')
+                                            }}
+                                            className="text-blue-600 hover:text-blue-800 hover:underline cursor-pointer"
+                                          >
+                                            {projectName}
+                                          </button>
+                                          {index < projectNames.length - 1 && ', '}
+                                        </span>
+                                      ))}
+                                    </span>
+                                  )
                                   : 'No associated projects'
                               })()}
                             </div>
@@ -2779,7 +2843,26 @@ function App() {
                                 console.log('Area names:', areaNames)
                                 
                                 return areaNames.length > 0 
-                                  ? `Belongs to: ${areaNames.join(', ')}`
+                                  ? (
+                                    <span>
+                                      Belongs to: {areaNames.map((areaName, index) => (
+                                        <span key={areaName}>
+                                          <button
+                                            onClick={(e) => {
+                                              e.stopPropagation()
+                                              setSelectedBucket('AREA')
+                                              setSearchQuery(areaName)
+                                              setCurrentView('table')
+                                            }}
+                                            className="text-blue-600 hover:text-blue-800 hover:underline cursor-pointer"
+                                          >
+                                            {areaName}
+                                          </button>
+                                          {index < areaNames.length - 1 && ', '}
+                                        </span>
+                                      ))}
+                                    </span>
+                                  )
                                   : 'No associated areas'
                               })()}
                             </div>
@@ -2836,6 +2919,19 @@ function App() {
                               ))}
                             </div>
                           )}
+                          {item.bucket === 'PROJECT' && (() => {
+                            const avgProgress = getProjectProgress(item.id)
+                            return avgProgress !== null ? (
+                              <div className="mt-2">
+                                <div className="w-full bg-gray-200 rounded-full h-1.5">
+                                  <div 
+                                    className="bg-green-500 h-1.5 rounded-full transition-all duration-300" 
+                                    style={{ width: `${Math.min(100, Math.max(0, avgProgress))}%` }}
+                                  ></div>
+                                </div>
+                              </div>
+                            ) : null
+                          })()}
                         </CardContent>
                       </Card>
                     ))}
